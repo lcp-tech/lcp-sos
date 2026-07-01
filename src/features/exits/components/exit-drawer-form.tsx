@@ -95,7 +95,7 @@ export function ExitDrawerForm({
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
           {/* Article picker */}
-          <label style={LABEL_STYLE}>Artículo</label>
+          <label style={LABEL_STYLE}>Artículo <span style={{ color: '#c8392f' }}>*</span></label>
           <button
             type="button"
             onClick={() => setSelectorOpen('item')}
@@ -131,7 +131,7 @@ export function ExitDrawerForm({
           {/* Quantity + Unit */}
           <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
             <div style={{ flex: 1.4 }}>
-              <label style={LABEL_STYLE}>Cantidad</label>
+              <label style={LABEL_STYLE}>Cantidad <span style={{ color: '#c8392f' }}>*</span></label>
               <input
                 type="number"
                 inputMode="decimal"

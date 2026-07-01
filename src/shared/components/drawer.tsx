@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 interface DrawerProps {
@@ -22,6 +22,18 @@ interface DrawerProps {
  */
 export function Drawer({ open, onClose, children, maxHeight = '90%', zLayer = 50, skipBodyLock = false }: DrawerProps) {
   const prevOpen = useRef(open)
+  // Keep content mounted briefly after close so the slide-out animation plays
+  const [mounted, setMounted] = useState(open)
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true)
+    } else {
+      // Unmount children after the transition ends (340ms)
+      const timer = setTimeout(() => setMounted(false), 350)
+      return () => clearTimeout(timer)
+    }
+  }, [open])
 
   // Lock body scroll when drawer is open (skip for stacked drawers)
   useEffect(() => {
@@ -112,8 +124,8 @@ export function Drawer({ open, onClose, children, maxHeight = '90%', zLayer = 50
           />
         </div>
 
-        {/* Content */}
-        {children}
+        {/* Content — only mount when open (prevents ghost input focus on mobile) */}
+        {mounted && children}
       </div>
     </>,
     document.body

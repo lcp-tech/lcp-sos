@@ -64,7 +64,7 @@ export function PersonDrawerForm({
         {/* Names + Surnames row */}
         <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
           <div style={{ flex: 1 }}>
-            <label style={LABEL_STYLE}>Nombres</label>
+            <label style={LABEL_STYLE}>Nombres <span style={{ color: '#c8392f' }}>*</span></label>
             <input
               placeholder="María"
               style={{ ...INPUT_STYLE, border: `1.5px solid ${errors.names ? '#c8392f' : '#e6ebf1'}` }}
@@ -75,7 +75,7 @@ export function PersonDrawerForm({
             )}
           </div>
           <div style={{ flex: 1 }}>
-            <label style={LABEL_STYLE}>Apellidos</label>
+            <label style={LABEL_STYLE}>Apellidos <span style={{ color: '#c8392f' }}>*</span></label>
             <input
               placeholder="González"
               style={{ ...INPUT_STYLE, border: `1.5px solid ${errors.surnames ? '#c8392f' : '#e6ebf1'}` }}

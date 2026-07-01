@@ -74,7 +74,7 @@ export function ItemDrawerForm({
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
           {/* Item name */}
-          <label style={LABEL_STYLE}>Nombre del artículo</label>
+          <label style={LABEL_STYLE}>Nombre del artículo <span style={{ color: '#c8392f' }}>*</span></label>
           <input
             placeholder="Harina de Maíz Precocida (1kg)"
             style={{ ...INPUT_STYLE, border: `1.5px solid ${errors.name ? '#c8392f' : '#e6ebf1'}`, marginBottom: 16 }}

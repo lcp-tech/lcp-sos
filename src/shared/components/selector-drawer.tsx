@@ -151,7 +151,7 @@ export function SelectorDrawer({
                 color: '#12212e',
                 fontFamily: 'inherit',
               }}
-              autoFocus
+              autoFocus={open}
             />
           </div>
 
