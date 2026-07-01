@@ -50,7 +50,17 @@ export function BarcodeScanner({ open, onScan, onClose }: BarcodeScannerProps) {
       if (stopped) return
       stopped = true
       scannerRef.current = null
-      scanner.stop().then(() => scanner.clear()).catch(() => {})
+      try {
+        const state = scanner.getState()
+        // Only stop if actually scanning (state 2 = SCANNING, 3 = PAUSED)
+        if (state === 2 || state === 3) {
+          scanner.stop().then(() => scanner.clear()).catch(() => {})
+        } else {
+          scanner.clear()
+        }
+      } catch {
+        // Scanner not initialized or already cleared — ignore
+      }
     }
 
     scanner
@@ -87,13 +97,8 @@ export function BarcodeScanner({ open, onScan, onClose }: BarcodeScannerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, open])
 
+  // Only close the drawer — the useEffect cleanup handles stopping the scanner
   function handleClose() {
-    if (scannerRef.current) {
-      const s = scannerRef.current
-      scannerRef.current = null
-      s.stop().then(() => s.clear()).catch(() => {})
-    }
-    setReady(false)
     onClose()
   }
 
