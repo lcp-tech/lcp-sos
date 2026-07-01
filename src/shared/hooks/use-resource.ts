@@ -45,6 +45,7 @@ export function useResourceList<T>(
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
+  const hasLoadedOnce = useRef(false)
 
   const debouncedSearch = useDebounce(search, 300)
 
@@ -58,7 +59,10 @@ export function useResourceList<T>(
     let cancelled = false
 
     async function load() {
-      setLoading(true)
+      // Only show loading skeleton on first load — subsequent polls update silently
+      if (!hasLoadedOnce.current) {
+        setLoading(true)
+      }
       setError(null)
 
       const params: ResourceListParams = { limit: pageSize, page, ...filters }
@@ -75,7 +79,10 @@ export function useResourceList<T>(
         if (cancelled) return
         setError(extractErrorMessage(err))
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+          hasLoadedOnce.current = true
+        }
       }
     }
 

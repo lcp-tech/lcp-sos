@@ -106,7 +106,7 @@ export function PersonDrawerForm({
         </label>
         <input
           inputMode="numeric"
-          placeholder="04141234567"
+          placeholder="4141234567"
           style={{ ...INPUT_STYLE, border: `1.5px solid ${errors.phone ? '#c8392f' : '#e6ebf1'}`, marginBottom: 16 }}
           {...register('phone')}
         />
