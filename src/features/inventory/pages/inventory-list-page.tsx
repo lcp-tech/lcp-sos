@@ -1,10 +1,7 @@
 import { useOutletContext } from 'react-router-dom'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { useInventory } from '@/features/inventory/hooks'
-
-interface OutletCtx {
-  searchValue: string
-}
+import type { OutletCtxValue } from '@/shared/layouts/app-layout'
 
 function getStockStatus(available: number) {
   if (available < 0) return { color: '#c8392f', badgeBg: '#fdeceb', badgeColor: '#c8392f', badgeText: 'Negativo' }
@@ -14,8 +11,13 @@ function getStockStatus(available: number) {
 }
 
 export function InventoryListPage() {
-  const { searchValue } = useOutletContext<OutletCtx>()
-  const { data, totalCount, loading, error } = useInventory({ name: searchValue || undefined })
+  const { searchValue, barcodeValue } = useOutletContext<OutletCtxValue>()
+  const filters = barcodeValue
+    ? { barcode: barcodeValue }
+    : searchValue
+      ? { name: searchValue }
+      : undefined
+  const { data, totalCount, loading, error } = useInventory(filters)
 
   const lowStockCount = data.filter((e) => e.available > 0 && e.available <= 5).length
   const outCount = data.filter((e) => e.available <= 0).length

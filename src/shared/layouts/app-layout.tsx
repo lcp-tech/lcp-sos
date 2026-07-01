@@ -3,15 +3,16 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { BottomNav } from '@/shared/layouts/bottom-nav'
 import { Drawer } from '@/shared/components/drawer'
+import { BarcodeScanner } from '@/shared/components/barcode-scanner'
 import { useAuthStore } from '@/shared/stores/auth-store'
 
 // ------------ Tab meta -------------------------------------------------------
-const TAB_META: Record<string, { kicker: string; title: string; searchPlaceholder: string; showAdd: boolean }> = {
-  '/inventory':  { kicker: 'Stock actual',  title: 'Inventario', searchPlaceholder: 'Buscar artículo…',  showAdd: false },
-  '/entries':    { kicker: 'Movimientos',   title: 'Entradas',   searchPlaceholder: 'Buscar entrada…',   showAdd: true  },
-  '/exits':      { kicker: 'Movimientos',   title: 'Salidas',    searchPlaceholder: 'Buscar salida…',    showAdd: true  },
-  '/items':      { kicker: 'Catálogo',      title: 'Artículos',  searchPlaceholder: 'Buscar artículo…',  showAdd: true  },
-  '/persons':    { kicker: 'Directorio',    title: 'Personas',   searchPlaceholder: 'Buscar persona…',   showAdd: true  },
+const TAB_META: Record<string, { kicker: string; title: string; searchPlaceholder: string; showAdd: boolean; showScan: boolean }> = {
+  '/inventory':  { kicker: 'Stock actual',  title: 'Inventario', searchPlaceholder: 'Buscar artículo…',  showAdd: false, showScan: true  },
+  '/entries':    { kicker: 'Movimientos',   title: 'Entradas',   searchPlaceholder: 'Buscar entrada…',   showAdd: true,  showScan: false },
+  '/exits':      { kicker: 'Movimientos',   title: 'Salidas',    searchPlaceholder: 'Buscar salida…',    showAdd: true,  showScan: false },
+  '/items':      { kicker: 'Catálogo',      title: 'Artículos',  searchPlaceholder: 'Buscar artículo…',  showAdd: true,  showScan: true  },
+  '/persons':    { kicker: 'Directorio',    title: 'Personas',   searchPlaceholder: 'Buscar persona…',   showAdd: true,  showScan: false },
 }
 
 // ------------ Add-button callback context -----------------------------------
@@ -27,8 +28,10 @@ export const AddContext = createContext<AddContextValue>({
 })
 
 // ------------ Outlet context shared to pages ---------------------------------
-interface OutletCtxValue {
+export interface OutletCtxValue {
   searchValue: string
+  barcodeValue: string
+  clearFilters: () => void
 }
 
 /** App shell with the Acopio design: custom header, search bar, bottom nav, menu drawer, toast. */
@@ -40,7 +43,14 @@ export function AppLayout() {
   const tabMeta = TAB_META[location.pathname] ?? TAB_META['/inventory']
 
   const [searchValue, setSearchValue] = useState('')
+  const [barcodeValue, setBarcodeValue] = useState('')
+  const [scannerOpen, setScannerOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+
+  function clearFilters() {
+    setSearchValue('')
+    setBarcodeValue('')
+  }
 
   // Add-handler registry: pages register here, header "+" calls it
   const addHandlerRef = useRef<AddHandler | null>(null)
@@ -63,15 +73,17 @@ export function AppLayout() {
     navigate('/login', { replace: true })
   }
 
-  // Clear search when tab changes
+  // Clear search + barcode when tab changes
   const prevPath = useRef(location.pathname)
   if (prevPath.current !== location.pathname) {
     prevPath.current = location.pathname
-    // reset inline — safe because this runs during render before children
-    // We schedule it to avoid render-during-render issues:
+    if (searchValue || barcodeValue) {
+      // Schedule to avoid setState during render
+      setTimeout(() => { setSearchValue(''); setBarcodeValue('') }, 0)
+    }
   }
 
-  const outletCtx: OutletCtxValue = { searchValue }
+  const outletCtx: OutletCtxValue = { searchValue, barcodeValue, clearFilters }
 
   return (
     <AddContext.Provider value={{ registerAddHandler }}>
@@ -120,26 +132,54 @@ export function AppLayout() {
             </div>
           </div>
 
-          {/* Search bar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: '1.5px solid #e6ecf2', borderRadius: 15, padding: '0 14px', height: 48 }}>
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#9aa8b6" strokeWidth="2.2" strokeLinecap="round">
-              <circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>
-            </svg>
-            <input
-              value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              placeholder={tabMeta.searchPlaceholder}
-              aria-label="Buscar"
-              style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 15, fontWeight: 500, color: '#12212e', fontFamily: 'inherit' }}
-            />
-            {searchValue && (
+          {/* Search bar + optional scan button */}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: '1.5px solid #e6ecf2', borderRadius: 15, padding: '0 14px', height: 48 }}>
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#9aa8b6" strokeWidth="2.2" strokeLinecap="round">
+                <circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>
+              </svg>
+              <input
+                value={barcodeValue || searchValue}
+                onChange={(e) => { setBarcodeValue(''); setSearchValue(e.target.value) }}
+                placeholder={tabMeta.searchPlaceholder}
+                aria-label="Buscar"
+                style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 15, fontWeight: 500, color: '#12212e', fontFamily: 'inherit' }}
+                readOnly={!!barcodeValue}
+              />
+              {(searchValue || barcodeValue) && (
+                <button
+                  onClick={clearFilters}
+                  aria-label="Limpiar búsqueda"
+                  style={{ border: 'none', background: '#eef2f6', width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, flexShrink: 0 }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7a8a98" strokeWidth="2.6" strokeLinecap="round">
+                    <path d="M18 6 6 18M6 6l12 12"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {tabMeta.showScan && (
               <button
-                onClick={() => setSearchValue('')}
-                aria-label="Limpiar búsqueda"
-                style={{ border: 'none', background: '#eef2f6', width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}
+                onClick={() => setScannerOpen(true)}
+                aria-label="Escanear código de barras"
+                style={{
+                  flexShrink: 0,
+                  width: 48,
+                  height: 48,
+                  borderRadius: 14,
+                  background: 'linear-gradient(180deg, #1d6299, #165382)',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7a8a98" strokeWidth="2.6" strokeLinecap="round">
-                  <path d="M18 6 6 18M6 6l12 12"/>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+                  <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                  <path d="M3 12h18"/>
                 </svg>
               </button>
             )}
@@ -183,7 +223,16 @@ export function AppLayout() {
           </div>
         </Drawer>
 
-
+        {/* Barcode scanner for inventory/items search */}
+        <BarcodeScanner
+          open={scannerOpen}
+          onClose={() => setScannerOpen(false)}
+          onScan={(code) => {
+            setScannerOpen(false)
+            setSearchValue('')
+            setBarcodeValue(code)
+          }}
+        />
 
       </div>
     </AddContext.Provider>

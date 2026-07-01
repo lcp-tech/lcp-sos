@@ -10,10 +10,10 @@ import { toCreateItemDTO, type ItemFormValues } from '@/features/items/schemas'
 import { ItemDrawerForm } from '@/features/items/components/item-drawer-form'
 import type { Item } from '@/features/items/types'
 
-interface OutletCtx { searchValue: string }
+import type { OutletCtxValue } from '@/shared/layouts/app-layout'
 
 export function ItemsListPage() {
-  const { searchValue } = useOutletContext<OutletCtx>()
+  const { searchValue, barcodeValue } = useOutletContext<OutletCtxValue>()
   const { data, loading, error, refetch } = useItems()
   const { archiveItem } = useArchiveItem()
   const { createItem, submitting: createSubmitting } = useCreateItem()
@@ -31,11 +31,12 @@ export function ItemsListPage() {
     return registerAddHandler(() => { setFormError(''); setCreateOpen(true) })
   }, [registerAddHandler])
 
-  const filtered = searchValue
+  const filterValue = barcodeValue || searchValue
+  const filtered = filterValue
     ? data.filter(
         (item) =>
-          item.name.toLowerCase().includes(searchValue.toLowerCase()) ||
-          (item.barcode && item.barcode.includes(searchValue))
+          item.name.toLowerCase().includes(filterValue.toLowerCase()) ||
+          (item.barcode && item.barcode.includes(filterValue))
       )
     : data
 
@@ -97,7 +98,7 @@ export function ItemsListPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '44px 20px', color: '#9aa8b6', fontWeight: 500 }}>
-          {searchValue ? 'Sin resultados' : 'No hay artículos registrados'}
+          {filterValue ? 'Sin resultados' : 'No hay artículos registrados'}
         </div>
       ) : (
         <div>

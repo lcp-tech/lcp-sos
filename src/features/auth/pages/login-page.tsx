@@ -11,6 +11,7 @@ export function LoginPage() {
   const login = useAuthStore((state) => state.login)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loginError, setLoginError] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   const { register, handleSubmit } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -105,24 +106,58 @@ export function LoginPage() {
         >
           Contraseña
         </label>
-        <input
-          id="password"
-          type="password"
-          autoComplete="current-password"
-          placeholder="••••••••"
-          style={{
-            width: '100%',
-            background: '#fff',
-            border: '1.5px solid #e2e8ef',
-            borderRadius: 15,
-            padding: '15px 16px',
-            fontSize: 15,
-            fontWeight: 500,
-            color: '#12212e',
-            outline: 'none',
-          }}
-          {...register('password')}
-        />
+        <div style={{ position: 'relative' }}>
+          <input
+            id="password"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="current-password"
+            placeholder="••••••••"
+            style={{
+              width: '100%',
+              background: '#fff',
+              border: '1.5px solid #e2e8ef',
+              borderRadius: 15,
+              padding: '15px 46px 15px 16px',
+              fontSize: 15,
+              fontWeight: 500,
+              color: '#12212e',
+              outline: 'none',
+            }}
+            {...register('password')}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            style={{
+              position: 'absolute',
+              right: 14,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+              display: 'flex',
+              alignItems: 'center',
+              color: '#9aa8b6',
+            }}
+          >
+            {showPassword ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                <path d="m1 1 22 22"/>
+                <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            )}
+          </button>
+        </div>
 
         {loginError && (
           <div
