@@ -89,9 +89,11 @@ export function BarcodeScanner({ open, onScan, onClose }: BarcodeScannerProps) {
 
   function handleClose() {
     if (scannerRef.current) {
-      scannerRef.current.stop().catch(() => {})
+      const s = scannerRef.current
       scannerRef.current = null
+      s.stop().then(() => s.clear()).catch(() => {})
     }
+    setReady(false)
     onClose()
   }
 

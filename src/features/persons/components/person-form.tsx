@@ -10,7 +10,8 @@ import { personSchema, type PersonFormValues } from '@/features/persons/schemas'
 const EMPTY_VALUES: PersonFormValues = {
   names: '',
   surnames: '',
-  dni: '',
+  dniType: 'V',
+  dniNumber: '',
   phone: '',
   address: '',
   notes: '',
@@ -64,7 +65,7 @@ export function PersonForm({
             placeholder="Apellidos"
             required
           />
-          <FormField control={control} name="dni" label="DNI" placeholder="V12345678" />
+          <FormField control={control} name="dniNumber" label="DNI" placeholder="12345678" />
         </FieldGroup>
       </section>
 

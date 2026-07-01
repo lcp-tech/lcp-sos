@@ -1,7 +1,7 @@
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 
-import { personSchema, type PersonFormValues } from '@/features/persons/schemas'
+import { personSchema, DNI_LIMITS, type PersonFormValues } from '@/features/persons/schemas'
 
 interface PersonDrawerFormProps {
   defaultValues?: PersonFormValues
@@ -12,7 +12,7 @@ interface PersonDrawerFormProps {
   submitLabel?: string
 }
 
-const EMPTY: PersonFormValues = { names: '', surnames: '', dni: '', phone: '', address: '', notes: '' }
+const EMPTY: PersonFormValues = { names: '', surnames: '', dniType: 'V', dniNumber: '', phone: '', address: '', notes: '' }
 
 const INPUT_STYLE: React.CSSProperties = {
   width: '100%',
@@ -48,11 +48,14 @@ export function PersonDrawerForm({
   title = 'Nueva persona',
   submitLabel = 'Crear persona',
 }: PersonDrawerFormProps) {
-  const { register, handleSubmit, formState: { errors } } = useForm<PersonFormValues>({
+  const { register, handleSubmit, control, formState: { errors } } = useForm<PersonFormValues>({
     resolver: zodResolver(personSchema),
     defaultValues: EMPTY,
     values: defaultValues,
   })
+
+  const dniType = useWatch({ control, name: 'dniType' }) ?? 'V'
+  const limits = DNI_LIMITS[dniType] ?? { min: 6, max: 8 }
 
   return (
     <div className="scrollarea" style={{ overflowY: 'auto', padding: '6px 22px 30px' }}>
@@ -87,17 +90,50 @@ export function PersonDrawerForm({
           </div>
         </div>
 
-        {/* DNI */}
+        {/* DNI: type select + number input */}
         <label style={LABEL_STYLE}>
           Cédula / DNI <span style={OPTIONAL_STYLE}>· opcional</span>
         </label>
-        <input
-          placeholder="V12345678"
-          style={{ ...INPUT_STYLE, border: `1.5px solid ${errors.dni ? '#c8392f' : '#e6ebf1'}`, marginBottom: 16 }}
-          {...register('dni')}
-        />
-        {errors.dni && (
-          <div style={{ color: '#c8392f', fontSize: 12, fontWeight: 600, marginTop: -10, marginBottom: 10 }}>{errors.dni.message}</div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <select
+            {...register('dniType')}
+            style={{
+              width: 72,
+              flexShrink: 0,
+              background: '#f5f7fa',
+              border: '1.5px solid #e6ebf1',
+              borderRadius: 14,
+              padding: '15px 8px 15px 14px',
+              fontSize: 15,
+              fontWeight: 700,
+              color: '#12212e',
+              outline: 'none',
+              fontFamily: 'inherit',
+              appearance: 'none',
+              WebkitAppearance: 'none',
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa8b6' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 8px center',
+            }}
+          >
+            <option value="V">V</option>
+            <option value="E">E</option>
+            <option value="P">P</option>
+          </select>
+          <input
+            inputMode="numeric"
+            placeholder={`${limits.min}–${limits.max} dígitos`}
+            maxLength={limits.max}
+            style={{
+              ...INPUT_STYLE,
+              flex: 1,
+              border: `1.5px solid ${errors.dniNumber ? '#c8392f' : '#e6ebf1'}`,
+            }}
+            {...register('dniNumber')}
+          />
+        </div>
+        {errors.dniNumber && (
+          <div style={{ color: '#c8392f', fontSize: 12, fontWeight: 600, marginTop: -10, marginBottom: 10 }}>{errors.dniNumber.message}</div>
         )}
 
         {/* Phone */}

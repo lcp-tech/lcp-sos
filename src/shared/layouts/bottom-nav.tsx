@@ -68,13 +68,15 @@ export function BottomNav() {
         bottom: 0,
         left: 0,
         right: 0,
-        height: 80,
         background: 'rgba(255,255,255,.92)',
         backdropFilter: 'blur(18px)',
         WebkitBackdropFilter: 'blur(18px)',
         borderTop: '1px solid #e6ecf2',
         display: 'flex',
-        padding: '8px 8px 20px',
+        paddingTop: 8,
+        paddingLeft: 8,
+        paddingRight: 8,
+        paddingBottom: 'max(8px, env(safe-area-inset-bottom, 0px))',
         zIndex: 40,
       }}
     >

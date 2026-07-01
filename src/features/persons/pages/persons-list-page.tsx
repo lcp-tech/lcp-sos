@@ -6,7 +6,7 @@ import { Drawer } from '@/shared/components/drawer'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { AddContext } from '@/shared/layouts/app-layout'
 import { useArchivePerson, useCreatePerson, usePersons, useUpdatePerson } from '@/features/persons/hooks'
-import { toCreatePersonDTO, type PersonFormValues } from '@/features/persons/schemas'
+import { toCreatePersonDTO, personToFormValues, type PersonFormValues } from '@/features/persons/schemas'
 import { PersonDrawerForm } from '@/features/persons/components/person-drawer-form'
 import type { Person } from '@/features/persons/types'
 
@@ -233,14 +233,7 @@ export function PersonsListPage() {
       <Drawer open={editOpen} onClose={() => setEditOpen(false)}>
         {selectedPerson && (
           <PersonDrawerForm
-            defaultValues={{
-              names: selectedPerson.names,
-              surnames: selectedPerson.surnames,
-              dni: selectedPerson.dni ?? '',
-              phone: selectedPerson.phone ?? '',
-              address: selectedPerson.address ?? '',
-              notes: selectedPerson.notes ?? '',
-            }}
+            defaultValues={personToFormValues(selectedPerson)}
             onSubmit={handleUpdate}
             submitting={updateSubmitting}
             formError={formError}
