@@ -93,10 +93,10 @@ export function AppLayout() {
     <AddContext.Provider value={{ registerAddHandler }}>
       <div className="scrollarea" style={{ position: 'relative', minHeight: '100dvh', background: '#f5f7fa', overflowY: 'auto' }}>
 
-        <OfflineBanner />
-
-        {/* ---- HEADER ---- */}
-        <header style={{ position: 'sticky', top: 0, zIndex: 10, padding: '20px 20px 14px', background: '#f5f7fa' }}>
+        {/* ---- STICKY HEADER (banner + title + search) ---- */}
+        <header style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f5f7fa' }}>
+          <OfflineBanner />
+          <div style={{ padding: '20px 20px 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             {/* Title group */}
             <div>
@@ -189,6 +189,7 @@ export function AppLayout() {
                 </svg>
               </button>
             )}
+          </div>
           </div>
         </header>
 
