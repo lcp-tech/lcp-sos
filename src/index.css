@@ -154,6 +154,19 @@
   50%      { opacity: 0.4; }
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+@keyframes drawCheck {
+  to { stroke-dashoffset: 0; }
+}
+
 /* Hide scrollbars on scrollable areas */
 .scrollarea::-webkit-scrollbar { width: 0; height: 0; }
 .scrollarea { scrollbar-width: none; }

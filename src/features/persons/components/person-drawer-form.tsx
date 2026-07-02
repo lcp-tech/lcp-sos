@@ -141,10 +141,15 @@ export function PersonDrawerForm({
           Teléfono <span style={OPTIONAL_STYLE}>· opcional</span>
         </label>
         <input
-          inputMode="numeric"
+          type="tel"
+          pattern="[0-9]*"
+          inputMode="tel"
           placeholder="4141234567"
+          maxLength={10}
           style={{ ...INPUT_STYLE, border: `1.5px solid ${errors.phone ? '#c8392f' : '#e6ebf1'}`, marginBottom: 16 }}
-          {...register('phone')}
+          {...register('phone', {
+            onChange: (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10) },
+          })}
         />
         {errors.phone && (
           <div style={{ color: '#c8392f', fontSize: 12, fontWeight: 600, marginTop: -10, marginBottom: 10 }}>{errors.phone.message}</div>

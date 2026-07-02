@@ -17,11 +17,13 @@ export function BarcodeScanner({ open, onScan, onClose }: BarcodeScannerProps) {
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const [errorKind, setErrorKind] = useState<ErrorKind | null>(null)
   const [ready, setReady] = useState(false)
+  const [cameraActive, setCameraActive] = useState(false)
 
   // Wait for drawer animation before mounting scanner
   useEffect(() => {
     if (!open) {
       setReady(false)
+      setCameraActive(false)
       setErrorKind(null)
       return
     }
@@ -70,8 +72,6 @@ export function BarcodeScanner({ open, onScan, onClose }: BarcodeScannerProps) {
         {
           fps: 30,
           qrbox: { width: 300, height: 180 },
-          // Use the native BarcodeDetector API when available (Chrome/Edge/Android)
-          // — significantly faster than the JS fallback
           experimentalFeatures: { useBarCodeDetectorIfSupported: true },
         } as any,
         (decodedText) => {
@@ -81,6 +81,9 @@ export function BarcodeScanner({ open, onScan, onClose }: BarcodeScannerProps) {
         },
         () => {}
       )
+      .then(() => {
+        if (!stopped) setCameraActive(true)
+      })
       .catch((err: unknown) => {
         console.error('[BarcodeScanner] start error:', err)
         const msg = String(err)
@@ -112,16 +115,51 @@ export function BarcodeScanner({ open, onScan, onClose }: BarcodeScannerProps) {
           Apuntá la cámara al código de barras
         </div>
 
-        {/* Camera viewport — no overflow:hidden, let html5-qrcode control its own layout */}
-        <div style={{ position: 'relative', width: '100%', borderRadius: 22, overflow: 'hidden', background: '#12212e' }}>
+        {/* Camera viewport */}
+        <div style={{ position: 'relative', width: '100%', minHeight: 240, borderRadius: 22, overflow: 'hidden', background: '#12212e' }}>
           {errorKind ? (
             <ErrorState kind={errorKind} />
           ) : (
             <>
+              {/* Skeleton while camera is loading */}
+              {!cameraActive && (
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  zIndex: 3,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 16,
+                  background: '#12212e',
+                }}>
+                  {/* Pulsing camera icon */}
+                  <div style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
+                    background: 'rgba(255,255,255,.08)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    animation: 'pulse 1.5s ease-in-out infinite',
+                  }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+                      <circle cx="12" cy="13" r="3"/>
+                    </svg>
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,.35)' }}>
+                    Iniciando cámara…
+                  </div>
+                </div>
+              )}
+
               <div id={READER_ID} style={{ width: '100%' }} />
 
-              {/* Scan line overlay */}
-              {ready && (
+              {/* Scan line overlay — only after camera is active */}
+              {cameraActive && (
                 <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2 }} aria-hidden="true">
                   <div style={{
                     position: 'absolute',

@@ -1,8 +1,8 @@
 import { useState, useContext, useEffect } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { toast } from 'sonner'
-
 import { Drawer } from '@/shared/components/drawer'
+import { ActionDialog } from '@/shared/components/action-dialog'
+import { useActionDialog } from '@/shared/hooks/use-action-dialog'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { AddContext } from '@/shared/layouts/app-layout'
 import { useArchiveEntry, useCreateEntry, useEntries } from '@/features/entries/hooks'
@@ -35,6 +35,7 @@ export function EntriesListPage() {
 
   const [formOpen, setFormOpen] = useState(false)
   const [formError, setFormError] = useState('')
+  const { dialogProps, closeDialog, runWithDialog } = useActionDialog()
 
   useEffect(() => {
     return registerAddHandler(() => { setFormError(''); setFormOpen(true) })
@@ -51,15 +52,20 @@ export function EntriesListPage() {
 
   async function handleSubmit(values: EntryFormValues) {
     setFormError('')
+    setFormOpen(false)
     try {
-      const entry = await createEntry(toCreateEntryDTO(values))
-      if (entry) {
-        setFormOpen(false)
-        toast.success('Entrada registrada')
-        refetch()
-      }
+      await runWithDialog({
+        loading: 'Registrando entrada…',
+        success: 'Entrada registrada',
+        error: 'No se pudo registrar la entrada',
+        action: async () => {
+          const entry = await createEntry(toCreateEntryDTO(values))
+          if (!entry) throw new Error('fail')
+        },
+      })
+      refetch()
     } catch {
-      setFormError('No se pudo registrar la entrada. Intentá de nuevo.')
+      /* dialog shows error */
     }
   }
 
@@ -141,6 +147,8 @@ export function EntriesListPage() {
           formError={formError}
         />
       </Drawer>
+
+      <ActionDialog {...dialogProps} onClose={closeDialog} />
     </div>
   )
 }

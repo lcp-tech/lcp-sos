@@ -3,6 +3,8 @@ import { useOutletContext } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Drawer } from '@/shared/components/drawer'
+import { ActionDialog } from '@/shared/components/action-dialog'
+import { useActionDialog } from '@/shared/hooks/use-action-dialog'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { AddContext } from '@/shared/layouts/app-layout'
 import { useArchivePerson, useCreatePerson, usePersons, useUpdatePerson } from '@/features/persons/hooks'
@@ -43,6 +45,7 @@ export function PersonsListPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
   const [formError, setFormError] = useState('')
+  const { dialogProps, closeDialog, runWithDialog } = useActionDialog()
 
   useEffect(() => {
     return registerAddHandler(() => { setFormError(''); setCreateOpen(true) })
@@ -58,30 +61,40 @@ export function PersonsListPage() {
 
   async function handleCreate(values: PersonFormValues) {
     setFormError('')
+    setCreateOpen(false)
     try {
-      const person = await createPerson(toCreatePersonDTO(values))
-      if (person) {
-        setCreateOpen(false)
-        toast.success('Persona creada')
-        refetch()
-      }
+      await runWithDialog({
+        loading: 'Creando persona…',
+        success: 'Persona creada',
+        error: 'No se pudo crear la persona',
+        action: async () => {
+          const person = await createPerson(toCreatePersonDTO(values))
+          if (!person) throw new Error('fail')
+        },
+      })
+      refetch()
     } catch {
-      setFormError('No se pudo crear la persona. Intentá de nuevo.')
+      /* dialog shows error */
     }
   }
 
   async function handleUpdate(values: PersonFormValues) {
     if (!selectedPerson) return
     setFormError('')
+    setEditOpen(false)
     try {
-      const ok = await updatePerson(selectedPerson.id, toCreatePersonDTO(values))
-      if (ok) {
-        setEditOpen(false)
-        toast.success('Persona actualizada')
-        refetch()
-      }
+      await runWithDialog({
+        loading: 'Actualizando persona…',
+        success: 'Persona actualizada',
+        error: 'No se pudo actualizar la persona',
+        action: async () => {
+          const ok = await updatePerson(selectedPerson.id, toCreatePersonDTO(values))
+          if (!ok) throw new Error('fail')
+        },
+      })
+      refetch()
     } catch {
-      setFormError('No se pudo actualizar. Intentá de nuevo.')
+      /* dialog shows error */
     }
   }
 
@@ -242,6 +255,8 @@ export function PersonsListPage() {
           />
         )}
       </Drawer>
+
+      <ActionDialog {...dialogProps} onClose={closeDialog} />
     </div>
   )
 }

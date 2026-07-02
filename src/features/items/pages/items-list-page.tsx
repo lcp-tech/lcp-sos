@@ -3,6 +3,8 @@ import { useOutletContext } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Drawer } from '@/shared/components/drawer'
+import { ActionDialog } from '@/shared/components/action-dialog'
+import { useActionDialog } from '@/shared/hooks/use-action-dialog'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { AddContext } from '@/shared/layouts/app-layout'
 import { useArchiveItem, useCreateItem, useItems, useUpdateItem } from '@/features/items/hooks'
@@ -27,6 +29,7 @@ export function ItemsListPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<Item | null>(null)
   const [formError, setFormError] = useState('')
+  const { dialogProps, closeDialog, runWithDialog } = useActionDialog()
 
   useEffect(() => {
     return registerAddHandler(() => { setFormError(''); setCreateOpen(true) })
@@ -43,46 +46,42 @@ export function ItemsListPage() {
 
   async function handleCreate(values: ItemFormValues, file: File | null) {
     setFormError('')
+    setCreateOpen(false)
     try {
-      const item = await createItem(toCreateItemDTO(values))
-      if (item) {
-        // Upload file if provided (second request)
-        if (file) {
-          try {
-            await itemsApi.uploadFile(item.id, file)
-          } catch {
-            toast.error('Artículo creado, pero no se pudo subir la imagen')
-          }
-        }
-        setCreateOpen(false)
-        toast.success('Artículo creado')
-        refetch()
-      }
+      await runWithDialog({
+        loading: 'Creando artículo…',
+        success: 'Artículo creado',
+        error: 'No se pudo crear el artículo',
+        action: async () => {
+          const item = await createItem(toCreateItemDTO(values))
+          if (!item) throw new Error('fail')
+          if (file) await itemsApi.uploadFile(item.id, file)
+        },
+      })
+      refetch()
     } catch {
-      setFormError('No se pudo crear el artículo. Intentá de nuevo.')
+      /* dialog already shows error */
     }
   }
 
   async function handleUpdate(values: ItemFormValues, file: File | null) {
     if (!selectedItem) return
     setFormError('')
+    setEditOpen(false)
     try {
-      const ok = await updateItem(selectedItem.id, toCreateItemDTO(values))
-      if (ok) {
-        // Upload or delete file if changed
-        if (file) {
-          try {
-            await itemsApi.uploadFile(selectedItem.id, file)
-          } catch {
-            toast.error('Artículo actualizado, pero no se pudo subir la imagen')
-          }
-        }
-        setEditOpen(false)
-        toast.success('Artículo actualizado')
-        refetch()
-      }
+      await runWithDialog({
+        loading: 'Actualizando artículo…',
+        success: 'Artículo actualizado',
+        error: 'No se pudo actualizar el artículo',
+        action: async () => {
+          const ok = await updateItem(selectedItem.id, toCreateItemDTO(values))
+          if (!ok) throw new Error('fail')
+          if (file) await itemsApi.uploadFile(selectedItem.id, file)
+        },
+      })
+      refetch()
     } catch {
-      setFormError('No se pudo actualizar. Intentá de nuevo.')
+      /* dialog already shows error */
     }
   }
 
@@ -274,6 +273,8 @@ export function ItemsListPage() {
           />
         )}
       </Drawer>
+
+      <ActionDialog {...dialogProps} onClose={closeDialog} />
     </div>
   )
 }

@@ -1,8 +1,8 @@
 import { useState, useContext, useEffect } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { toast } from 'sonner'
-
 import { Drawer } from '@/shared/components/drawer'
+import { ActionDialog } from '@/shared/components/action-dialog'
+import { useActionDialog } from '@/shared/hooks/use-action-dialog'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { AddContext } from '@/shared/layouts/app-layout'
 import { useArchiveExit, useCreateExit, useExits } from '@/features/exits/hooks'
@@ -35,6 +35,7 @@ export function ExitsListPage() {
 
   const [formOpen, setFormOpen] = useState(false)
   const [formError, setFormError] = useState('')
+  const { dialogProps, closeDialog, runWithDialog } = useActionDialog()
 
   useEffect(() => {
     return registerAddHandler(() => { setFormError(''); setFormOpen(true) })
@@ -50,15 +51,20 @@ export function ExitsListPage() {
 
   async function handleSubmit(values: ExitFormValues) {
     setFormError('')
+    setFormOpen(false)
     try {
-      const exit = await createExit(toCreateExitDTO(values))
-      if (exit) {
-        setFormOpen(false)
-        toast.success('Salida registrada')
-        refetch()
-      }
+      await runWithDialog({
+        loading: 'Registrando salida…',
+        success: 'Salida registrada',
+        error: 'No se pudo registrar la salida',
+        action: async () => {
+          const exit = await createExit(toCreateExitDTO(values))
+          if (!exit) throw new Error('fail')
+        },
+      })
+      refetch()
     } catch {
-      setFormError('No se pudo registrar la salida. Intentá de nuevo.')
+      /* dialog shows error */
     }
   }
 
@@ -140,6 +146,8 @@ export function ExitsListPage() {
           formError={formError}
         />
       </Drawer>
+
+      <ActionDialog {...dialogProps} onClose={closeDialog} />
     </div>
   )
 }
