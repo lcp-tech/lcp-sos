@@ -1,8 +1,9 @@
-import { useState, useContext, useEffect } from 'react'
+import { useState, useContext, useEffect, useRef } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Drawer } from '@/shared/components/drawer'
+import { ImageLightbox } from '@/shared/components/image-lightbox'
 import { ActionDialog } from '@/shared/components/action-dialog'
 import { useActionDialog } from '@/shared/hooks/use-action-dialog'
 import { Skeleton } from '@/shared/components/ui/skeleton'
@@ -17,7 +18,7 @@ import type { OutletCtxValue } from '@/shared/layouts/app-layout'
 
 export function ItemsListPage() {
   const { searchValue, barcodeValue } = useOutletContext<OutletCtxValue>()
-  const { data, loading, error, refetch } = useItems()
+  const { data, loading, error, refetch, loadMore, hasMore, loadingMore } = useItems()
   const { archiveItem } = useArchiveItem()
   const { createItem, submitting: createSubmitting } = useCreateItem()
   const { updateItem, submitting: updateSubmitting } = useUpdateItem()
@@ -27,6 +28,7 @@ export function ItemsListPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<Item | null>(null)
   const [formError, setFormError] = useState('')
   const { dialogProps, closeDialog, runWithDialog } = useActionDialog()
@@ -34,6 +36,21 @@ export function ItemsListPage() {
   useEffect(() => {
     return registerAddHandler(() => { setFormError(''); setCreateOpen(true) })
   }, [registerAddHandler])
+
+  // Infinite scroll sentinel
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!hasMore || loadingMore) return
+    const el = sentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) loadMore() },
+      { threshold: 0 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasMore, loadingMore, loadMore])
 
   const filterValue = barcodeValue || searchValue
   const filtered = filterValue
@@ -140,11 +157,15 @@ export function ItemsListPage() {
               onMouseUp={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.borderColor = '#e9edf2' }}
               onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.borderColor = '#e9edf2' }}
             >
-              {/* Box icon */}
-              <div style={{ flexShrink: 0, width: 46, height: 46, borderRadius: 14, background: '#eaf1f7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2c6ea0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/>
-                </svg>
+              {/* Item photo or box icon */}
+              <div style={{ flexShrink: 0, width: 46, height: 46, borderRadius: 14, background: '#eaf1f7', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                {item.url ? (
+                  <img src={item.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2c6ea0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/>
+                  </svg>
+                )}
               </div>
 
               {/* Name + unit + barcode */}
@@ -172,6 +193,12 @@ export function ItemsListPage() {
               </svg>
             </button>
           ))}
+          {hasMore && <div ref={sentinelRef} style={{ height: 1 }} />}
+          {loadingMore && (
+            <div style={{ textAlign: 'center', padding: '16px', color: '#9aa8b6', fontSize: 13, fontWeight: 500 }}>
+              Cargando más…
+            </div>
+          )}
         </div>
       )}
 
@@ -188,19 +215,50 @@ export function ItemsListPage() {
       <Drawer open={detailOpen} onClose={() => setDetailOpen(false)}>
         {selectedItem && (
           <div className="scrollarea" style={{ overflowY: 'auto', padding: '6px 22px 30px' }}>
-            {/* Item image */}
+            {/* Item image — tap to open fullscreen */}
             {selectedItem.url && (
-              <img
-                src={selectedItem.url}
-                alt={selectedItem.name}
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(true)}
+                aria-label="Ver imagen completa"
                 style={{
                   width: '100%',
-                  height: 160,
-                  objectFit: 'cover',
-                  borderRadius: 14,
+                  padding: 0,
+                  border: 'none',
+                  background: 'none',
+                  cursor: 'pointer',
                   marginBottom: 16,
+                  position: 'relative',
                 }}
-              />
+              >
+                <img
+                  src={selectedItem.url}
+                  alt={selectedItem.name}
+                  style={{
+                    width: '100%',
+                    height: 160,
+                    objectFit: 'cover',
+                    borderRadius: 14,
+                  }}
+                />
+                {/* Expand hint icon */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: 8,
+                  right: 8,
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  background: 'rgba(0,0,0,.45)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/>
+                  </svg>
+                </div>
+              </button>
             )}
 
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 20 }}>
@@ -275,6 +333,16 @@ export function ItemsListPage() {
       </Drawer>
 
       <ActionDialog {...dialogProps} onClose={closeDialog} />
+
+      {/* Fullscreen image viewer */}
+      {selectedItem?.url && (
+        <ImageLightbox
+          open={lightboxOpen}
+          src={selectedItem.url}
+          alt={selectedItem.name}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
     </div>
   )
 }

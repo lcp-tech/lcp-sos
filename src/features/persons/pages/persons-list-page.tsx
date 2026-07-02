@@ -1,4 +1,4 @@
-import { useState, useContext, useEffect } from 'react'
+import { useState, useContext, useEffect, useRef } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -33,7 +33,7 @@ function getAvatar(person: Person) {
 
 export function PersonsListPage() {
   const { searchValue } = useOutletContext<OutletCtx>()
-  const { data, loading, error, refetch } = usePersons()
+  const { data, loading, error, refetch, loadMore, hasMore, loadingMore } = usePersons()
   const { archivePerson } = useArchivePerson()
   const { createPerson, submitting: createSubmitting } = useCreatePerson()
   const { updatePerson, submitting: updateSubmitting } = useUpdatePerson()
@@ -50,6 +50,21 @@ export function PersonsListPage() {
   useEffect(() => {
     return registerAddHandler(() => { setFormError(''); setCreateOpen(true) })
   }, [registerAddHandler])
+
+  // Infinite scroll sentinel
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!hasMore || loadingMore) return
+    const el = sentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) loadMore() },
+      { threshold: 0 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasMore, loadingMore, loadMore])
 
   const filtered = searchValue
     ? data.filter(
@@ -178,6 +193,12 @@ export function PersonsListPage() {
               </button>
             )
           })}
+          {hasMore && <div ref={sentinelRef} style={{ height: 1 }} />}
+          {loadingMore && (
+            <div style={{ textAlign: 'center', padding: '16px', color: '#9aa8b6', fontSize: 13, fontWeight: 500 }}>
+              Cargando más…
+            </div>
+          )}
         </div>
       )}
 

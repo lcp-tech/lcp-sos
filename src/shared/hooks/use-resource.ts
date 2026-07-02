@@ -16,6 +16,12 @@ export interface UseResourceListReturn<T> {
   search: string
   setSearch: (search: string) => void
   refetch: () => void
+  /** Load the next page and append results to existing data */
+  loadMore: () => void
+  /** True when there are more pages to load */
+  hasMore: boolean
+  /** True when a "load more" fetch is in progress (not the initial load) */
+  loadingMore: boolean
 }
 
 export interface UseResourceListOptions {
@@ -29,7 +35,7 @@ export interface UseResourceListOptions {
   filters?: Record<string, string | number | undefined>
 }
 
-/** Generic list hook: pagination, debounced search, extra filters, and manual refetch. */
+/** Generic list hook: pagination, debounced search, extra filters, infinite scroll, and manual refetch. */
 export function useResourceList<T>(
   api: Pick<ResourceApi<T>, 'getAll'>,
   options: UseResourceListOptions = {}
@@ -41,26 +47,44 @@ export function useResourceList<T>(
   const [data, setData] = useState<T[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
   const [search, setSearch] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
   const hasLoadedOnce = useRef(false)
+
+  // When this is true, the next fetch should APPEND data (not replace)
+  const isLoadMoreRef = useRef(false)
 
   const debouncedSearch = useDebounce(search, 300)
 
   const refetch = useCallback(() => setRefreshTick((tick) => tick + 1), [])
 
+  /** Load the next page and append results to existing data */
+  const loadMore = useCallback(() => {
+    setPage((prev) => {
+      isLoadMoreRef.current = true
+      return prev + 1
+    })
+  }, [])
+
+  // Reset to page 1 (replace data) when search or filters change
   useEffect(() => {
+    isLoadMoreRef.current = false
     setPage(1)
   }, [debouncedSearch, filtersKey])
 
   useEffect(() => {
     let cancelled = false
+    const isAppending = isLoadMoreRef.current
 
     async function load() {
-      // Only show loading skeleton on first load — subsequent polls update silently
-      if (!hasLoadedOnce.current) {
+      if (isAppending) {
+        setLoadingMore(true)
+      } else if (!hasLoadedOnce.current) {
+        // Only show loading skeleton on first load — subsequent polls update silently
         setLoading(true)
       }
       setError(null)
@@ -73,15 +97,27 @@ export function useResourceList<T>(
       try {
         const response = await api.getAll(params)
         if (cancelled) return
-        setData(response.data)
+
+        if (isAppending) {
+          // Append new items to existing data
+          setData((prev) => [...prev, ...response.data])
+        } else {
+          // Replace data on fresh load or poll
+          setData(response.data)
+        }
+
         setTotalCount(response.pagination?.totalItems ?? response.data.length)
+        setHasMore(response.pagination?.hasNextPage ?? false)
       } catch (err) {
         if (cancelled) return
         setError(extractErrorMessage(err))
       } finally {
         if (!cancelled) {
           setLoading(false)
+          setLoadingMore(false)
           hasLoadedOnce.current = true
+          // Reset the append flag after the fetch completes
+          isLoadMoreRef.current = false
         }
       }
     }
@@ -96,13 +132,17 @@ export function useResourceList<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, page, pageSize, debouncedSearch, refreshTick, filtersKey])
 
-  // Poll every 20s, but only when the tab is visible
+  // Poll every 20s, but only when the tab is visible.
+  // On poll: fetch page 1 and replace all data (keeps data fresh without complexity).
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     function startPolling() {
       stopPolling()
       intervalRef.current = setInterval(() => {
+        // Reset to page 1 and replace data on every poll
+        isLoadMoreRef.current = false
+        setPage(1)
         setRefreshTick((t) => t + 1)
       }, 20_000)
     }
@@ -119,6 +159,8 @@ export function useResourceList<T>(
         stopPolling()
       } else {
         // Refetch immediately when tab becomes visible, then resume polling
+        isLoadMoreRef.current = false
+        setPage(1)
         setRefreshTick((t) => t + 1)
         startPolling()
       }
@@ -136,7 +178,7 @@ export function useResourceList<T>(
     }
   }, [])
 
-  return { data, totalCount, loading, error, page, setPage, search, setSearch, refetch }
+  return { data, totalCount, loading, error, page, setPage, search, setSearch, refetch, loadMore, hasMore, loadingMore }
 }
 
 export interface UseResourceMutationReturn<T, CreateDTO, UpdateDTO> {

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { useInventory } from '@/features/inventory/hooks'
@@ -17,10 +18,25 @@ export function InventoryListPage() {
     : searchValue
       ? { name: searchValue }
       : undefined
-  const { data, totalCount, loading, error } = useInventory(filters)
+  const { data, totalCount, loading, error, loadMore, hasMore, loadingMore } = useInventory(filters)
 
   const lowStockCount = data.filter((e) => e.available > 0 && e.available <= 5).length
   const outCount = data.filter((e) => e.available <= 0).length
+
+  // Infinite scroll sentinel
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!hasMore || loadingMore) return
+    const el = sentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) loadMore() },
+      { threshold: 0 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasMore, loadingMore, loadMore])
 
   return (
     <div style={{ animation: 'screenIn .32s ease' }}>
@@ -138,6 +154,12 @@ export function InventoryListPage() {
               </button>
             )
           })}
+          {hasMore && <div ref={sentinelRef} style={{ height: 1 }} />}
+          {loadingMore && (
+            <div style={{ textAlign: 'center', padding: '16px', color: '#9aa8b6', fontSize: 13, fontWeight: 500 }}>
+              Cargando más…
+            </div>
+          )}
         </div>
       )}
     </div>
