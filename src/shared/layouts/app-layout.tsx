@@ -4,6 +4,8 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { BottomNav } from '@/shared/layouts/bottom-nav'
 import { Drawer } from '@/shared/components/drawer'
 import { BarcodeScanner } from '@/shared/components/barcode-scanner'
+import { OfflineBanner } from '@/shared/components/offline-banner'
+import { useOnline } from '@/shared/hooks/use-online'
 import { useAuthStore } from '@/shared/stores/auth-store'
 
 // ------------ Tab meta -------------------------------------------------------
@@ -32,6 +34,7 @@ export interface OutletCtxValue {
   searchValue: string
   barcodeValue: string
   clearFilters: () => void
+  isOnline: boolean
 }
 
 /** App shell with the Acopio design: custom header, search bar, bottom nav, menu drawer, toast. */
@@ -41,6 +44,7 @@ export function AppLayout() {
   const logout = useAuthStore((state) => state.logout)
 
   const tabMeta = TAB_META[location.pathname] ?? TAB_META['/inventory']
+  const isOnline = useOnline()
 
   const [searchValue, setSearchValue] = useState('')
   const [barcodeValue, setBarcodeValue] = useState('')
@@ -83,11 +87,13 @@ export function AppLayout() {
     }
   }
 
-  const outletCtx: OutletCtxValue = { searchValue, barcodeValue, clearFilters }
+  const outletCtx: OutletCtxValue = { searchValue, barcodeValue, clearFilters, isOnline }
 
   return (
     <AddContext.Provider value={{ registerAddHandler }}>
       <div style={{ position: 'relative', minHeight: '100dvh', background: '#f5f7fa', display: 'flex', flexDirection: 'column' }}>
+
+        <OfflineBanner />
 
         {/* ---- HEADER ---- */}
         <header style={{ flexShrink: 0, padding: '20px 20px 14px', background: '#f5f7fa' }}>
@@ -100,7 +106,7 @@ export function AppLayout() {
 
             {/* Action buttons */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {tabMeta.showAdd && (
+              {tabMeta.showAdd && isOnline && (
                 <button
                   onClick={handleAdd}
                   aria-label={`Añadir en ${tabMeta.title}`}
