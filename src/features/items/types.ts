@@ -11,6 +11,7 @@ export interface Item {
   name: string
   barcode: string | null
   unit: string | null
+  url: string | null
   createdAt: string
   createdBy: number
   updatedAt: string | null

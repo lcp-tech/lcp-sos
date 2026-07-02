@@ -6,6 +6,7 @@ import { Drawer } from '@/shared/components/drawer'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { AddContext } from '@/shared/layouts/app-layout'
 import { useArchiveItem, useCreateItem, useItems, useUpdateItem } from '@/features/items/hooks'
+import { itemsApi } from '@/features/items/api'
 import { toCreateItemDTO, type ItemFormValues } from '@/features/items/schemas'
 import { ItemDrawerForm } from '@/features/items/components/item-drawer-form'
 import type { Item } from '@/features/items/types'
@@ -40,11 +41,19 @@ export function ItemsListPage() {
       )
     : data
 
-  async function handleCreate(values: ItemFormValues) {
+  async function handleCreate(values: ItemFormValues, file: File | null) {
     setFormError('')
     try {
       const item = await createItem(toCreateItemDTO(values))
       if (item) {
+        // Upload file if provided (second request)
+        if (file) {
+          try {
+            await itemsApi.uploadFile(item.id, file)
+          } catch {
+            toast.error('Artículo creado, pero no se pudo subir la imagen')
+          }
+        }
         setCreateOpen(false)
         toast.success('Artículo creado')
         refetch()
@@ -54,12 +63,20 @@ export function ItemsListPage() {
     }
   }
 
-  async function handleUpdate(values: ItemFormValues) {
+  async function handleUpdate(values: ItemFormValues, file: File | null) {
     if (!selectedItem) return
     setFormError('')
     try {
       const ok = await updateItem(selectedItem.id, toCreateItemDTO(values))
       if (ok) {
+        // Upload or delete file if changed
+        if (file) {
+          try {
+            await itemsApi.uploadFile(selectedItem.id, file)
+          } catch {
+            toast.error('Artículo actualizado, pero no se pudo subir la imagen')
+          }
+        }
         setEditOpen(false)
         toast.success('Artículo actualizado')
         refetch()
@@ -172,9 +189,26 @@ export function ItemsListPage() {
       <Drawer open={detailOpen} onClose={() => setDetailOpen(false)}>
         {selectedItem && (
           <div className="scrollarea" style={{ overflowY: 'auto', padding: '6px 22px 30px' }}>
+            {/* Item image */}
+            {selectedItem.url && (
+              <img
+                src={selectedItem.url}
+                alt={selectedItem.name}
+                style={{
+                  width: '100%',
+                  height: 160,
+                  objectFit: 'cover',
+                  borderRadius: 14,
+                  marginBottom: 16,
+                }}
+              />
+            )}
+
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 20 }}>
-              <div style={{ flexShrink: 0, width: 52, height: 52, borderRadius: 16, background: '#eaf1f7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#2c6ea0', fontSize: 14 }}>
-                ART
+              <div style={{ flexShrink: 0, width: 52, height: 52, borderRadius: 16, background: '#eaf1f7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#2c6ea0', fontSize: 14, overflow: 'hidden' }}>
+                {selectedItem.url ? (
+                  <img src={selectedItem.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : 'ART'}
               </div>
               <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
                 <div style={{ fontSize: 20, fontWeight: 800, color: '#0f2a40', letterSpacing: '-.4px', lineHeight: 1.2 }}>
@@ -231,6 +265,7 @@ export function ItemsListPage() {
               barcode: selectedItem.barcode ?? '',
               unit: selectedItem.unit ?? '',
             }}
+            existingImageUrl={selectedItem.url}
             onSubmit={handleUpdate}
             submitting={updateSubmitting}
             formError={formError}

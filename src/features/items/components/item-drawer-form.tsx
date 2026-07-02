@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 
@@ -9,9 +9,11 @@ const UNIT_CHIPS = ['Kilogramos (kg)', 'Unidades', 'Litros', 'Cajas', 'Blísters
 
 const EMPTY: ItemFormValues = { name: '', barcode: '', unit: '' }
 
-interface ItemDrawerFormProps {
+export interface ItemDrawerFormProps {
   defaultValues?: ItemFormValues
-  onSubmit: (values: ItemFormValues) => Promise<void> | void
+  /** Existing image URL (for edit mode). */
+  existingImageUrl?: string | null
+  onSubmit: (values: ItemFormValues, file: File | null) => Promise<void> | void
   submitting?: boolean
   formError?: string
   title?: string
@@ -46,6 +48,7 @@ const OPTIONAL_STYLE: React.CSSProperties = {
 
 export function ItemDrawerForm({
   defaultValues,
+  existingImageUrl,
   onSubmit,
   submitting = false,
   formError = '',
@@ -53,6 +56,9 @@ export function ItemDrawerForm({
   submitLabel = 'Crear artículo',
 }: ItemDrawerFormProps) {
   const [scannerOpen, setScannerOpen] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(existingImageUrl ?? null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { register, handleSubmit, setValue, control, formState: { errors } } = useForm<ItemFormValues>({
     resolver: zodResolver(itemSchema),
@@ -65,6 +71,23 @@ export function ItemDrawerForm({
     setScannerOpen(false)
   }
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSelectedFile(file)
+    setPreviewUrl(URL.createObjectURL(file))
+  }
+
+  function removeImage() {
+    setSelectedFile(null)
+    setPreviewUrl(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  function onFormSubmit(values: ItemFormValues) {
+    onSubmit(values, selectedFile)
+  }
+
   return (
     <>
       <div className="scrollarea" style={{ overflowY: 'auto', padding: '6px 22px 30px' }}>
@@ -72,7 +95,88 @@ export function ItemDrawerForm({
           {title}
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <form onSubmit={handleSubmit(onFormSubmit)} noValidate>
+          {/* Image upload */}
+          <label style={LABEL_STYLE}>
+            Foto del artículo <span style={OPTIONAL_STYLE}>· opcional</span>
+          </label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            capture="environment"
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+          />
+
+          {previewUrl ? (
+            <div style={{ position: 'relative', marginBottom: 16 }}>
+              <img
+                src={previewUrl}
+                alt="Vista previa"
+                style={{
+                  width: '100%',
+                  height: 160,
+                  objectFit: 'cover',
+                  borderRadius: 14,
+                  border: '1.5px solid #e6ebf1',
+                }}
+              />
+              <button
+                type="button"
+                onClick={removeImage}
+                aria-label="Quitar imagen"
+                style={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  width: 30,
+                  height: 30,
+                  borderRadius: '50%',
+                  background: 'rgba(12,26,40,.6)',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round">
+                  <path d="M18 6 6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10,
+                background: '#f5f7fa',
+                border: '1.5px dashed #c5d0db',
+                borderRadius: 14,
+                padding: '22px 16px',
+                cursor: 'pointer',
+                color: '#5c7186',
+                fontSize: 14,
+                fontWeight: 600,
+                fontFamily: 'inherit',
+                marginBottom: 16,
+              }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7a8a98" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <path d="m21 15-5-5L5 21"/>
+              </svg>
+              Tomar foto o elegir de galería
+            </button>
+          )}
+
           {/* Item name */}
           <label style={LABEL_STYLE}>Nombre del artículo <span style={{ color: '#c8392f' }}>*</span></label>
           <input
