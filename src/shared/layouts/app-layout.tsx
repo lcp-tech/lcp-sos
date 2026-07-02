@@ -91,10 +91,10 @@ export function AppLayout() {
 
   return (
     <AddContext.Provider value={{ registerAddHandler }}>
-      <div className="scrollarea" style={{ position: 'relative', minHeight: '100dvh', background: '#f5f7fa', overflowY: 'auto' }}>
+      <div className="scrollarea" style={{ position: 'relative', minHeight: '100dvh', background: '#f5f7fa' }}>
 
-        {/* ---- STICKY HEADER (banner + title + search) ---- */}
-        <header style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f5f7fa' }}>
+        {/* ---- FIXED HEADER (banner + title + search) ---- */}
+        <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 10, background: '#f5f7fa' }}>
           <OfflineBanner />
           <div style={{ padding: '20px 20px 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -194,7 +194,7 @@ export function AppLayout() {
         </header>
 
         {/* ---- CONTENT ---- */}
-        <main style={{ padding: '4px 20px 120px' }}>
+        <main style={{ padding: '140px 20px 120px' }}>
           <Outlet context={outletCtx} />
         </main>
 
