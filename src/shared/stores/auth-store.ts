@@ -93,6 +93,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { token, refreshToken, user } = parsed.state ?? {}
       if (token && user) {
         set({ token, refreshToken: refreshToken ?? null, user, isAuthenticated: true })
+
+        // Refresh user profile in background (permissions/roles may have changed)
+        authApi.me().then((freshUser) => {
+          persistAuth(token, refreshToken ?? null, freshUser)
+          set({ user: freshUser })
+        }).catch(() => {
+          // If /me fails (e.g. token fully expired + refresh failed),
+          // the axios interceptor will handle logout automatically.
+        })
       }
     } catch {
       localStorage.removeItem(AUTH_STORAGE_KEY)
