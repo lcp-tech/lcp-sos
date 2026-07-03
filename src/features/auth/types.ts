@@ -4,11 +4,31 @@ export interface LoginCredentials {
   password: string
 }
 
-/** Authenticated user profile returned by the backend. */
+/** Role group from the backend. */
+export interface RoleGroup {
+  id: number
+  title: string
+  description: string
+}
+
+/** Role assigned to a user. */
+export interface UserRole {
+  id: number
+  title: string
+  description: string
+  group: RoleGroup
+}
+
+/** Authenticated user profile from `GET /bo/users/me`. */
 export interface AuthUser {
   id: number
+  names: string
+  surnames: string
   email: string
-  name: string
+  phone: string | null
+  url: string | null
+  permissions: string[]
+  roles: UserRole[]
 }
 
 /**

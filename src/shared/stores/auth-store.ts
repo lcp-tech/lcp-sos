@@ -47,13 +47,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const response = await authApi.login(credentials)
     const token = response.access_token
     const refreshToken = response.refresh_token
-    const user: AuthUser = {
-      id: 0,
-      email: credentials.username,
-      name: credentials.username,
+
+    // Set token first so apiClient can make authenticated requests
+    set({ token, refreshToken, isAuthenticated: true })
+
+    // Fetch the real user profile
+    try {
+      const user = await authApi.me()
+      persistAuth(token, refreshToken, user)
+      set({ user })
+    } catch {
+      // If /me fails, use email as fallback
+      const fallbackUser: AuthUser = {
+        id: 0,
+        names: credentials.username,
+        surnames: '',
+        email: credentials.username,
+        phone: null,
+        url: null,
+        permissions: [],
+        roles: [],
+      }
+      persistAuth(token, refreshToken, fallbackUser)
+      set({ user: fallbackUser })
     }
-    persistAuth(token, refreshToken, user)
-    set({ token, refreshToken, user, isAuthenticated: true })
   },
 
   setAccessToken(newToken: string) {

@@ -42,6 +42,7 @@ export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const logout = useAuthStore((state) => state.logout)
+  const user = useAuthStore((state) => state.user)
 
   const tabMeta = TAB_META[location.pathname] ?? TAB_META['/inventory']
   const isOnline = useOnline()
@@ -204,7 +205,17 @@ export function AppLayout() {
         {/* ---- MENU DRAWER ---- */}
         <Drawer open={menuOpen} onClose={() => setMenuOpen(false)}>
           <div style={{ padding: '8px 22px 30px' }}>
-            <div style={{ fontSize: 19, fontWeight: 800, color: '#0f2a40', margin: '6px 2px 16px' }}>Cuenta</div>
+            <div style={{ fontSize: 19, fontWeight: 800, color: '#0f2a40', margin: '6px 2px 4px' }}>Cuenta</div>
+            {user && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#122433' }}>
+                  {user.names} {user.surnames}
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: '#8a99a8' }}>
+                  {user.email}
+                </div>
+              </div>
+            )}
             <button
               onClick={() => { setMenuOpen(false); navigate('/inventory') }}
               style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 13, background: '#f5f7fa', border: '1.5px solid #eef2f6', borderRadius: 15, padding: '15px 16px', marginBottom: 11, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}

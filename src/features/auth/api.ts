@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { API_BASE_URL } from '@/shared/lib/constants'
-import type { LoginCredentials, LoginResponse, RefreshResponse } from '@/features/auth/types'
+import { apiClient } from '@/shared/api/client'
+import type { AuthUser, LoginCredentials, LoginResponse, RefreshResponse } from '@/features/auth/types'
 
 /**
  * Dedicated axios instance for auth requests.
@@ -36,6 +37,12 @@ export const authApi = {
       '/auth/refresh',
       { refresh_token: refreshToken }
     )
+    return data
+  },
+
+  /** Fetch the authenticated user's profile. Uses main apiClient (with refresh interceptor). */
+  async me(): Promise<AuthUser> {
+    const { data } = await apiClient.get<AuthUser>('/bo/users/me')
     return data
   },
 }
