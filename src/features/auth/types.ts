@@ -20,3 +20,9 @@ export interface LoginResponse {
   access_token: string
   refresh_token: string
 }
+
+/** Response body of `POST /auth/refresh`. Only returns a new access_token. */
+export interface RefreshResponse {
+  access_token: string
+  token_type: string
+}

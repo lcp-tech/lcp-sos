@@ -11,6 +11,7 @@ import { AUTH_STORAGE_KEY } from '@/shared/lib/constants'
 interface PersistedAuthState {
   state: {
     token: string | null
+    refreshToken: string | null
     user: AuthUser | null
   }
 }
@@ -18,46 +19,52 @@ interface PersistedAuthState {
 interface AuthState {
   user: AuthUser | null
   token: string | null
+  refreshToken: string | null
   isAuthenticated: boolean
-  /** Calls the login API, stores the session, and persists it to localStorage. */
   login: (credentials: LoginCredentials) => Promise<void>
-  /** Clears the in-memory and persisted session. */
+  /** Update only the access token (called after a refresh). */
+  setAccessToken: (token: string) => void
   logout: () => void
-  /** Restores a previously persisted session from localStorage. Call once on app start. */
   hydrate: () => void
 }
 
-function persistAuth(token: string | null, user: AuthUser | null): void {
+function persistAuth(token: string | null, refreshToken: string | null, user: AuthUser | null): void {
   if (token && user) {
-    const payload: PersistedAuthState = { state: { token, user } }
+    const payload: PersistedAuthState = { state: { token, refreshToken, user } }
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload))
   } else {
     localStorage.removeItem(AUTH_STORAGE_KEY)
   }
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   token: null,
+  refreshToken: null,
   isAuthenticated: false,
 
   async login(credentials) {
     const response = await authApi.login(credentials)
     const token = response.access_token
-    // The OAuth2 login endpoint doesn't return a user profile.
-    // Store the username (email) from the credentials as a minimal user.
+    const refreshToken = response.refresh_token
     const user: AuthUser = {
       id: 0,
       email: credentials.username,
       name: credentials.username,
     }
-    persistAuth(token, user)
-    set({ token, user, isAuthenticated: true })
+    persistAuth(token, refreshToken, user)
+    set({ token, refreshToken, user, isAuthenticated: true })
+  },
+
+  setAccessToken(newToken: string) {
+    const { refreshToken, user } = get()
+    persistAuth(newToken, refreshToken, user)
+    set({ token: newToken })
   },
 
   logout() {
-    persistAuth(null, null)
-    set({ token: null, user: null, isAuthenticated: false })
+    persistAuth(null, null, null)
+    set({ token: null, refreshToken: null, user: null, isAuthenticated: false })
   },
 
   hydrate() {
@@ -66,9 +73,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     try {
       const parsed = JSON.parse(raw) as PersistedAuthState
-      const { token, user } = parsed.state ?? {}
+      const { token, refreshToken, user } = parsed.state ?? {}
       if (token && user) {
-        set({ token, user, isAuthenticated: true })
+        set({ token, refreshToken: refreshToken ?? null, user, isAuthenticated: true })
       }
     } catch {
       localStorage.removeItem(AUTH_STORAGE_KEY)
