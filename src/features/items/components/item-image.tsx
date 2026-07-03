@@ -20,14 +20,12 @@ function BoxIcon({ size }: { size: number }) {
 }
 
 /**
- * Item thumbnail that shows the blue box icon as a placeholder,
+ * Square item thumbnail: shows the blue box icon as a placeholder,
  * then fades in the real image once it finishes loading.
- * If there's no url or the image fails, the icon stays.
  */
 export function ItemImage({ url, size = 46, radius = 14 }: ItemImageProps) {
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
-
   const showImage = url && !failed
 
   return (
@@ -45,15 +43,67 @@ export function ItemImage({ url, size = 46, radius = 14 }: ItemImageProps) {
         position: 'relative',
       }}
     >
-      {/* Icon — always rendered underneath */}
       <BoxIcon size={size} />
-
-      {/* Image — fades in over the icon once loaded */}
       {showImage && (
         <img
           src={url}
           alt=""
           loading="lazy"
+          decoding="async"
+          onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            opacity: loaded ? 1 : 0,
+            transition: 'opacity .25s ease',
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+interface ItemImageBannerProps {
+  url: string
+  alt?: string
+  /** Fixed height of the banner in px. */
+  height?: number
+}
+
+/**
+ * Wide banner image for the item detail view. Shows a subtle placeholder
+ * background + centered icon until the image loads, then fades in.
+ * Prevents the "blank flash" while the image decodes.
+ */
+export function ItemImageBanner({ url, alt = '', height = 160 }: ItemImageBannerProps) {
+  const [loaded, setLoaded] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  return (
+    <div
+      style={{
+        width: '100%',
+        height,
+        borderRadius: 14,
+        overflow: 'hidden',
+        position: 'relative',
+        background: '#eaf1f7',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      {/* Placeholder icon — visible until image loads */}
+      {!loaded && !failed && <BoxIcon size={56} />}
+
+      {!failed && (
+        <img
+          src={url}
+          alt={alt}
           decoding="async"
           onLoad={() => setLoaded(true)}
           onError={() => setFailed(true)}

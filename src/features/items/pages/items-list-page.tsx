@@ -12,7 +12,7 @@ import { useArchiveItem, useCreateItem, useItems, useItemDetail, useUpdateItem }
 import { itemsApi } from '@/features/items/api'
 import { toCreateItemDTO, type ItemFormValues } from '@/features/items/schemas'
 import { ItemDrawerForm } from '@/features/items/components/item-drawer-form'
-import { ItemImage } from '@/features/items/components/item-image'
+import { ItemImage, ItemImageBanner } from '@/features/items/components/item-image'
 import type { Item } from '@/features/items/types'
 
 import type { OutletCtxValue } from '@/shared/layouts/app-layout'
@@ -235,16 +235,7 @@ export function ItemsListPage() {
                   position: 'relative',
                 }}
               >
-                <img
-                  src={selectedItem.url}
-                  alt={selectedItem.name}
-                  style={{
-                    width: '100%',
-                    height: 160,
-                    objectFit: 'cover',
-                    borderRadius: 14,
-                  }}
-                />
+                <ItemImageBanner url={selectedItem.url} alt={selectedItem.name} height={160} />
                 {/* Expand hint icon */}
                 <div style={{
                   position: 'absolute',
@@ -266,11 +257,7 @@ export function ItemsListPage() {
             )}
 
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 20 }}>
-              <div style={{ flexShrink: 0, width: 52, height: 52, borderRadius: 16, background: '#eaf1f7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#2c6ea0', fontSize: 14, overflow: 'hidden' }}>
-                {selectedItem.url ? (
-                  <img src={selectedItem.url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : 'ART'}
-              </div>
+              <ItemImage url={selectedItem.url} size={52} radius={16} />
               <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
                 <div style={{ fontSize: 20, fontWeight: 800, color: '#0f2a40', letterSpacing: '-.4px', lineHeight: 1.2 }}>
                   {selectedItem.name}
