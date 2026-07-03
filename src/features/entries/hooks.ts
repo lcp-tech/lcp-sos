@@ -1,13 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 
 import { entriesApi } from '@/features/entries/api'
 import type { CreateEntryDTO, Entry, UpdateEntryDTO } from '@/features/entries/types'
-import {
-  extractErrorMessage,
-  useResourceList,
-  useResourceMutation,
-  type UseResourceListOptions,
-} from '@/shared/hooks/use-resource'
+import { DEFAULT_PAGE_SIZE } from '@/shared/lib/constants'
+import { extractErrorMessage } from '@/shared/hooks/use-resource'
 
 export interface EntryFilters {
   itemId?: number
@@ -16,21 +13,36 @@ export interface EntryFilters {
   until?: string
 }
 
-/** List hook: paginated, debounced free-text search, plus optional item/donor/date filters. */
-export function useEntries(
-  filters?: EntryFilters,
-  options?: Pick<UseResourceListOptions, 'pageSize'>
-) {
-  const mergedFilters = useMemo(() => {
-    const merged: Record<string, string | number> = {}
-    if (filters?.itemId) merged.itemId = filters.itemId
-    if (filters?.donorId) merged.donorId = filters.donorId
-    if (filters?.since) merged.since = filters.since
-    if (filters?.until) merged.until = filters.until
-    return Object.keys(merged).length > 0 ? merged : undefined
-  }, [filters?.itemId, filters?.donorId, filters?.since, filters?.until])
+/** List hook: infinite scroll, optional item/donor/date filters. */
+export function useEntries(filters?: EntryFilters) {
+  const params: Record<string, string | number> = {}
+  if (filters?.itemId) params.itemId = filters.itemId
+  if (filters?.donorId) params.donorId = filters.donorId
+  if (filters?.since) params.since = filters.since
+  if (filters?.until) params.until = filters.until
+  const activeParams = Object.keys(params).length > 0 ? params : undefined
 
-  return useResourceList<Entry>(entriesApi, { ...options, filters: mergedFilters })
+  const query = useInfiniteQuery({
+    queryKey: ['entries', activeParams],
+    queryFn: ({ pageParam }) =>
+      entriesApi.getAll({ limit: DEFAULT_PAGE_SIZE, page: pageParam as number, ...activeParams }),
+    getNextPageParam: (last) =>
+      last.pagination?.hasNextPage ? last.pagination.currentPage + 1 : undefined,
+    initialPageParam: 1,
+  })
+
+  return {
+    data: query.data?.pages.flatMap((p) => p.data) ?? [],
+    totalCount:
+      query.data?.pages[0]?.pagination?.totalItems ??
+      (query.data?.pages.flatMap((p) => p.data).length ?? 0),
+    loading: query.isLoading,
+    loadingMore: query.isFetchingNextPage,
+    error: query.error ? extractErrorMessage(query.error) : null,
+    hasMore: query.hasNextPage ?? false,
+    loadMore: query.fetchNextPage,
+    refetch: query.refetch,
+  }
 }
 
 interface UseEntryReturn {
@@ -42,67 +54,90 @@ interface UseEntryReturn {
 
 /** Fetches a single entry by id. Distinguishes 404 (`notFound`) from other errors. */
 export function useEntry(id: number | string | undefined): UseEntryReturn {
-  const [data, setData] = useState<Entry | null>(null)
-  const [loading, setLoading] = useState(Boolean(id))
-  const [error, setError] = useState<string | null>(null)
-  const [notFound, setNotFound] = useState(false)
+  const query = useQuery({
+    queryKey: ['entries', id],
+    queryFn: () => entriesApi.getById(id!),
+    enabled: id != null,
+  })
 
-  useEffect(() => {
-    if (id == null) {
-      setLoading(false)
-      return
-    }
+  const notFound =
+    (query.error as { response?: { status?: number } } | null)?.response?.status === 404
 
-    let cancelled = false
-
-    async function load() {
-      setLoading(true)
-      setError(null)
-      setNotFound(false)
-
-      try {
-        const entry = await entriesApi.getById(id as number | string)
-        if (!cancelled) setData(entry)
-      } catch (err) {
-        if (cancelled) return
-        const status = (err as { response?: { status?: number } })?.response?.status
-        if (status === 404) {
-          setNotFound(true)
-        } else {
-          setError(extractErrorMessage(err))
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    load()
-
-    return () => {
-      cancelled = true
-    }
-  }, [id])
-
-  return { data, loading, error, notFound }
+  return {
+    data: query.data ?? null,
+    loading: query.isLoading,
+    error: query.error && !notFound ? extractErrorMessage(query.error) : null,
+    notFound,
+  }
 }
 
 export function useCreateEntry() {
-  const { create, submitting } = useResourceMutation<Entry, CreateEntryDTO, UpdateEntryDTO>(
-    entriesApi
-  )
-  return { createEntry: create, submitting }
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: (payload: CreateEntryDTO) => entriesApi.create(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['entries'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory'] })
+    },
+    onError: (err) => toast.error(extractErrorMessage(err)),
+  })
+
+  const createEntry = async (payload: CreateEntryDTO): Promise<Entry | null> => {
+    try {
+      return await mutation.mutateAsync(payload)
+    } catch {
+      return null
+    }
+  }
+
+  return { createEntry, submitting: mutation.isPending }
 }
 
 export function useUpdateEntry() {
-  const { update, submitting } = useResourceMutation<Entry, CreateEntryDTO, UpdateEntryDTO>(
-    entriesApi
-  )
-  return { updateEntry: update, submitting }
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number | string; payload: UpdateEntryDTO }) =>
+      entriesApi.update(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['entries'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory'] })
+    },
+    onError: (err) => toast.error(extractErrorMessage(err)),
+  })
+
+  const updateEntry = async (
+    id: number | string,
+    payload: UpdateEntryDTO
+  ): Promise<Entry | null> => {
+    try {
+      return await mutation.mutateAsync({ id, payload })
+    } catch {
+      return null
+    }
+  }
+
+  return { updateEntry, submitting: mutation.isPending }
 }
 
 export function useArchiveEntry() {
-  const { archive, submitting } = useResourceMutation<Entry, CreateEntryDTO, UpdateEntryDTO>(
-    entriesApi
-  )
-  return { archiveEntry: archive, submitting }
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: (id: number | string) => entriesApi.archive(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['entries'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory'] })
+    },
+    onError: (err) => toast.error(extractErrorMessage(err)),
+  })
+
+  const archiveEntry = async (id: number | string): Promise<boolean> => {
+    try {
+      await mutation.mutateAsync(id)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  return { archiveEntry, submitting: mutation.isPending }
 }

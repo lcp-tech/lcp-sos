@@ -1,13 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 
 import { exitsApi } from '@/features/exits/api'
 import type { CreateExitDTO, Exit, UpdateExitDTO } from '@/features/exits/types'
-import {
-  extractErrorMessage,
-  useResourceList,
-  useResourceMutation,
-  type UseResourceListOptions,
-} from '@/shared/hooks/use-resource'
+import { DEFAULT_PAGE_SIZE } from '@/shared/lib/constants'
+import { extractErrorMessage } from '@/shared/hooks/use-resource'
 
 export interface ExitFilters {
   itemId?: number
@@ -16,21 +13,36 @@ export interface ExitFilters {
   until?: string
 }
 
-/** List hook: paginated, debounced free-text search, plus optional item/recipient/date filters. */
-export function useExits(
-  filters?: ExitFilters,
-  options?: Pick<UseResourceListOptions, 'pageSize'>
-) {
-  const mergedFilters = useMemo(() => {
-    const merged: Record<string, string | number> = {}
-    if (filters?.itemId) merged.itemId = filters.itemId
-    if (filters?.recipientId) merged.recipientId = filters.recipientId
-    if (filters?.since) merged.since = filters.since
-    if (filters?.until) merged.until = filters.until
-    return Object.keys(merged).length > 0 ? merged : undefined
-  }, [filters?.itemId, filters?.recipientId, filters?.since, filters?.until])
+/** List hook: infinite scroll, optional item/recipient/date filters. */
+export function useExits(filters?: ExitFilters) {
+  const params: Record<string, string | number> = {}
+  if (filters?.itemId) params.itemId = filters.itemId
+  if (filters?.recipientId) params.recipientId = filters.recipientId
+  if (filters?.since) params.since = filters.since
+  if (filters?.until) params.until = filters.until
+  const activeParams = Object.keys(params).length > 0 ? params : undefined
 
-  return useResourceList<Exit>(exitsApi, { ...options, filters: mergedFilters })
+  const query = useInfiniteQuery({
+    queryKey: ['exits', activeParams],
+    queryFn: ({ pageParam }) =>
+      exitsApi.getAll({ limit: DEFAULT_PAGE_SIZE, page: pageParam as number, ...activeParams }),
+    getNextPageParam: (last) =>
+      last.pagination?.hasNextPage ? last.pagination.currentPage + 1 : undefined,
+    initialPageParam: 1,
+  })
+
+  return {
+    data: query.data?.pages.flatMap((p) => p.data) ?? [],
+    totalCount:
+      query.data?.pages[0]?.pagination?.totalItems ??
+      (query.data?.pages.flatMap((p) => p.data).length ?? 0),
+    loading: query.isLoading,
+    loadingMore: query.isFetchingNextPage,
+    error: query.error ? extractErrorMessage(query.error) : null,
+    hasMore: query.hasNextPage ?? false,
+    loadMore: query.fetchNextPage,
+    refetch: query.refetch,
+  }
 }
 
 interface UseExitReturn {
@@ -42,63 +54,90 @@ interface UseExitReturn {
 
 /** Fetches a single exit by id. Distinguishes 404 (`notFound`) from other errors. */
 export function useExit(id: number | string | undefined): UseExitReturn {
-  const [data, setData] = useState<Exit | null>(null)
-  const [loading, setLoading] = useState(Boolean(id))
-  const [error, setError] = useState<string | null>(null)
-  const [notFound, setNotFound] = useState(false)
+  const query = useQuery({
+    queryKey: ['exits', id],
+    queryFn: () => exitsApi.getById(id!),
+    enabled: id != null,
+  })
 
-  useEffect(() => {
-    if (id == null) {
-      setLoading(false)
-      return
-    }
+  const notFound =
+    (query.error as { response?: { status?: number } } | null)?.response?.status === 404
 
-    let cancelled = false
-
-    async function load() {
-      setLoading(true)
-      setError(null)
-      setNotFound(false)
-
-      try {
-        const exit = await exitsApi.getById(id as number | string)
-        if (!cancelled) setData(exit)
-      } catch (err) {
-        if (cancelled) return
-        const status = (err as { response?: { status?: number } })?.response?.status
-        if (status === 404) {
-          setNotFound(true)
-        } else {
-          setError(extractErrorMessage(err))
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    load()
-
-    return () => {
-      cancelled = true
-    }
-  }, [id])
-
-  return { data, loading, error, notFound }
+  return {
+    data: query.data ?? null,
+    loading: query.isLoading,
+    error: query.error && !notFound ? extractErrorMessage(query.error) : null,
+    notFound,
+  }
 }
 
 export function useCreateExit() {
-  const { create, submitting } = useResourceMutation<Exit, CreateExitDTO, UpdateExitDTO>(exitsApi)
-  return { createExit: create, submitting }
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: (payload: CreateExitDTO) => exitsApi.create(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['exits'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory'] })
+    },
+    onError: (err) => toast.error(extractErrorMessage(err)),
+  })
+
+  const createExit = async (payload: CreateExitDTO): Promise<Exit | null> => {
+    try {
+      return await mutation.mutateAsync(payload)
+    } catch {
+      return null
+    }
+  }
+
+  return { createExit, submitting: mutation.isPending }
 }
 
 export function useUpdateExit() {
-  const { update, submitting } = useResourceMutation<Exit, CreateExitDTO, UpdateExitDTO>(exitsApi)
-  return { updateExit: update, submitting }
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number | string; payload: UpdateExitDTO }) =>
+      exitsApi.update(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['exits'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory'] })
+    },
+    onError: (err) => toast.error(extractErrorMessage(err)),
+  })
+
+  const updateExit = async (
+    id: number | string,
+    payload: UpdateExitDTO
+  ): Promise<Exit | null> => {
+    try {
+      return await mutation.mutateAsync({ id, payload })
+    } catch {
+      return null
+    }
+  }
+
+  return { updateExit, submitting: mutation.isPending }
 }
 
 export function useArchiveExit() {
-  const { archive, submitting } = useResourceMutation<Exit, CreateExitDTO, UpdateExitDTO>(
-    exitsApi
-  )
-  return { archiveExit: archive, submitting }
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: (id: number | string) => exitsApi.archive(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['exits'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory'] })
+    },
+    onError: (err) => toast.error(extractErrorMessage(err)),
+  })
+
+  const archiveExit = async (id: number | string): Promise<boolean> => {
+    try {
+      await mutation.mutateAsync(id)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  return { archiveExit, submitting: mutation.isPending }
 }

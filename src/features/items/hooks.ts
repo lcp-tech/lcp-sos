@@ -1,29 +1,40 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 
 import { itemsApi } from '@/features/items/api'
 import type { CreateItemDTO, Item, UpdateItemDTO } from '@/features/items/types'
-import {
-  extractErrorMessage,
-  useResourceList,
-  useResourceMutation,
-  type UseResourceListOptions,
-} from '@/shared/hooks/use-resource'
+import { DEFAULT_PAGE_SIZE } from '@/shared/lib/constants'
+import { extractErrorMessage } from '@/shared/hooks/use-resource'
 
 export interface ItemFilters {
   barcode?: string
 }
 
-/** List hook: paginated, debounced free-text name search, plus an optional barcode filter. */
-export function useItems(
-  filters?: ItemFilters,
-  options?: Pick<UseResourceListOptions, 'pageSize'>
-) {
-  const mergedFilters = useMemo(() => {
-    if (!filters?.barcode) return undefined
-    return { barcode: filters.barcode }
-  }, [filters?.barcode])
+/** List hook: infinite scroll, optional barcode filter. */
+export function useItems(filters?: ItemFilters) {
+  const params = filters?.barcode ? { barcode: filters.barcode } : undefined
 
-  return useResourceList<Item>(itemsApi, { ...options, filters: mergedFilters })
+  const query = useInfiniteQuery({
+    queryKey: ['items', params],
+    queryFn: ({ pageParam }) =>
+      itemsApi.getAll({ limit: DEFAULT_PAGE_SIZE, page: pageParam as number, ...params }),
+    getNextPageParam: (last) =>
+      last.pagination?.hasNextPage ? last.pagination.currentPage + 1 : undefined,
+    initialPageParam: 1,
+  })
+
+  return {
+    data: query.data?.pages.flatMap((p) => p.data) ?? [],
+    totalCount:
+      query.data?.pages[0]?.pagination?.totalItems ??
+      (query.data?.pages.flatMap((p) => p.data).length ?? 0),
+    loading: query.isLoading,
+    loadingMore: query.isFetchingNextPage,
+    error: query.error ? extractErrorMessage(query.error) : null,
+    hasMore: query.hasNextPage ?? false,
+    loadMore: query.fetchNextPage,
+    refetch: query.refetch,
+  }
 }
 
 interface UseItemReturn {
@@ -35,61 +46,90 @@ interface UseItemReturn {
 
 /** Fetches a single item by id. Distinguishes 404 (`notFound`) from other errors. */
 export function useItem(id: number | string | undefined): UseItemReturn {
-  const [data, setData] = useState<Item | null>(null)
-  const [loading, setLoading] = useState(Boolean(id))
-  const [error, setError] = useState<string | null>(null)
-  const [notFound, setNotFound] = useState(false)
+  const query = useQuery({
+    queryKey: ['items', id],
+    queryFn: () => itemsApi.getById(id!),
+    enabled: id != null,
+  })
 
-  useEffect(() => {
-    if (id == null) {
-      setLoading(false)
-      return
-    }
+  const notFound =
+    (query.error as { response?: { status?: number } } | null)?.response?.status === 404
 
-    let cancelled = false
-
-    async function load() {
-      setLoading(true)
-      setError(null)
-      setNotFound(false)
-
-      try {
-        const item = await itemsApi.getById(id as number | string)
-        if (!cancelled) setData(item)
-      } catch (err) {
-        if (cancelled) return
-        const status = (err as { response?: { status?: number } })?.response?.status
-        if (status === 404) {
-          setNotFound(true)
-        } else {
-          setError(extractErrorMessage(err))
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    load()
-
-    return () => {
-      cancelled = true
-    }
-  }, [id])
-
-  return { data, loading, error, notFound }
+  return {
+    data: query.data ?? null,
+    loading: query.isLoading,
+    error: query.error && !notFound ? extractErrorMessage(query.error) : null,
+    notFound,
+  }
 }
 
 export function useCreateItem() {
-  const { create, submitting } = useResourceMutation<Item, CreateItemDTO, UpdateItemDTO>(itemsApi)
-  return { createItem: create, submitting }
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: (payload: CreateItemDTO) => itemsApi.create(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory'] })
+    },
+    onError: (err) => toast.error(extractErrorMessage(err)),
+  })
+
+  const createItem = async (payload: CreateItemDTO): Promise<Item | null> => {
+    try {
+      return await mutation.mutateAsync(payload)
+    } catch {
+      return null
+    }
+  }
+
+  return { createItem, submitting: mutation.isPending }
 }
 
 export function useUpdateItem() {
-  const { update, submitting } = useResourceMutation<Item, CreateItemDTO, UpdateItemDTO>(itemsApi)
-  return { updateItem: update, submitting }
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number | string; payload: UpdateItemDTO }) =>
+      itemsApi.update(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory'] })
+    },
+    onError: (err) => toast.error(extractErrorMessage(err)),
+  })
+
+  const updateItem = async (
+    id: number | string,
+    payload: UpdateItemDTO
+  ): Promise<Item | null> => {
+    try {
+      return await mutation.mutateAsync({ id, payload })
+    } catch {
+      return null
+    }
+  }
+
+  return { updateItem, submitting: mutation.isPending }
 }
 
 export function useArchiveItem() {
-  const { archive, submitting } = useResourceMutation<Item, CreateItemDTO, UpdateItemDTO>(itemsApi)
-  return { archiveItem: archive, submitting }
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: (id: number | string) => itemsApi.archive(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory'] })
+    },
+    onError: (err) => toast.error(extractErrorMessage(err)),
+  })
+
+  const archiveItem = async (id: number | string): Promise<boolean> => {
+    try {
+      await mutation.mutateAsync(id)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  return { archiveItem, submitting: mutation.isPending }
 }

@@ -1,29 +1,40 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 
 import { personsApi } from '@/features/persons/api'
 import type { CreatePersonDTO, Person, UpdatePersonDTO } from '@/features/persons/types'
-import {
-  extractErrorMessage,
-  useResourceList,
-  useResourceMutation,
-  type UseResourceListOptions,
-} from '@/shared/hooks/use-resource'
+import { DEFAULT_PAGE_SIZE } from '@/shared/lib/constants'
+import { extractErrorMessage } from '@/shared/hooks/use-resource'
 
 export interface PersonFilters {
   dni?: string
 }
 
-/** List hook: paginated, debounced free-text search, plus an optional DNI filter. */
-export function usePersons(
-  filters?: PersonFilters,
-  options?: Pick<UseResourceListOptions, 'pageSize'>
-) {
-  const mergedFilters = useMemo(() => {
-    if (!filters?.dni) return undefined
-    return { dni: filters.dni }
-  }, [filters?.dni])
+/** List hook: infinite scroll, optional DNI filter. */
+export function usePersons(filters?: PersonFilters) {
+  const params = filters?.dni ? { dni: filters.dni } : undefined
 
-  return useResourceList<Person>(personsApi, { ...options, filters: mergedFilters })
+  const query = useInfiniteQuery({
+    queryKey: ['persons', params],
+    queryFn: ({ pageParam }) =>
+      personsApi.getAll({ limit: DEFAULT_PAGE_SIZE, page: pageParam as number, ...params }),
+    getNextPageParam: (last) =>
+      last.pagination?.hasNextPage ? last.pagination.currentPage + 1 : undefined,
+    initialPageParam: 1,
+  })
+
+  return {
+    data: query.data?.pages.flatMap((p) => p.data) ?? [],
+    totalCount:
+      query.data?.pages[0]?.pagination?.totalItems ??
+      (query.data?.pages.flatMap((p) => p.data).length ?? 0),
+    loading: query.isLoading,
+    loadingMore: query.isFetchingNextPage,
+    error: query.error ? extractErrorMessage(query.error) : null,
+    hasMore: query.hasNextPage ?? false,
+    loadMore: query.fetchNextPage,
+    refetch: query.refetch,
+  }
 }
 
 interface UsePersonReturn {
@@ -35,67 +46,87 @@ interface UsePersonReturn {
 
 /** Fetches a single person by id. Distinguishes 404 (`notFound`) from other errors. */
 export function usePerson(id: number | string | undefined): UsePersonReturn {
-  const [data, setData] = useState<Person | null>(null)
-  const [loading, setLoading] = useState(Boolean(id))
-  const [error, setError] = useState<string | null>(null)
-  const [notFound, setNotFound] = useState(false)
+  const query = useQuery({
+    queryKey: ['persons', id],
+    queryFn: () => personsApi.getById(id!),
+    enabled: id != null,
+  })
 
-  useEffect(() => {
-    if (id == null) {
-      setLoading(false)
-      return
-    }
+  const notFound =
+    (query.error as { response?: { status?: number } } | null)?.response?.status === 404
 
-    let cancelled = false
-
-    async function load() {
-      setLoading(true)
-      setError(null)
-      setNotFound(false)
-
-      try {
-        const person = await personsApi.getById(id as number | string)
-        if (!cancelled) setData(person)
-      } catch (err) {
-        if (cancelled) return
-        const status = (err as { response?: { status?: number } })?.response?.status
-        if (status === 404) {
-          setNotFound(true)
-        } else {
-          setError(extractErrorMessage(err))
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    load()
-
-    return () => {
-      cancelled = true
-    }
-  }, [id])
-
-  return { data, loading, error, notFound }
+  return {
+    data: query.data ?? null,
+    loading: query.isLoading,
+    error: query.error && !notFound ? extractErrorMessage(query.error) : null,
+    notFound,
+  }
 }
 
 export function useCreatePerson() {
-  const { create, submitting } = useResourceMutation<Person, CreatePersonDTO, UpdatePersonDTO>(
-    personsApi
-  )
-  return { createPerson: create, submitting }
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: (payload: CreatePersonDTO) => personsApi.create(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['persons'] })
+    },
+    onError: (err) => toast.error(extractErrorMessage(err)),
+  })
+
+  const createPerson = async (payload: CreatePersonDTO): Promise<Person | null> => {
+    try {
+      return await mutation.mutateAsync(payload)
+    } catch {
+      return null
+    }
+  }
+
+  return { createPerson, submitting: mutation.isPending }
 }
 
 export function useUpdatePerson() {
-  const { update, submitting } = useResourceMutation<Person, CreatePersonDTO, UpdatePersonDTO>(
-    personsApi
-  )
-  return { updatePerson: update, submitting }
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number | string; payload: UpdatePersonDTO }) =>
+      personsApi.update(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['persons'] })
+    },
+    onError: (err) => toast.error(extractErrorMessage(err)),
+  })
+
+  const updatePerson = async (
+    id: number | string,
+    payload: UpdatePersonDTO
+  ): Promise<Person | null> => {
+    try {
+      return await mutation.mutateAsync({ id, payload })
+    } catch {
+      return null
+    }
+  }
+
+  return { updatePerson, submitting: mutation.isPending }
 }
 
 export function useArchivePerson() {
-  const { archive, submitting } = useResourceMutation<Person, CreatePersonDTO, UpdatePersonDTO>(
-    personsApi
-  )
-  return { archivePerson: archive, submitting }
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: (id: number | string) => personsApi.archive(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['persons'] })
+    },
+    onError: (err) => toast.error(extractErrorMessage(err)),
+  })
+
+  const archivePerson = async (id: number | string): Promise<boolean> => {
+    try {
+      await mutation.mutateAsync(id)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  return { archivePerson, submitting: mutation.isPending }
 }
