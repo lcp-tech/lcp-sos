@@ -7,17 +7,21 @@ import { DEFAULT_PAGE_SIZE } from '@/shared/lib/constants'
 import { extractErrorMessage } from '@/shared/hooks/use-resource'
 
 export interface PersonFilters {
+  names?: string
   dni?: string
 }
 
-/** List hook: infinite scroll, optional DNI filter. */
+/** List hook: infinite scroll, optional names/DNI filter via API. */
 export function usePersons(filters?: PersonFilters) {
-  const params = filters?.dni ? { dni: filters.dni } : undefined
+  const params: Record<string, string> = {}
+  if (filters?.names) params.names = filters.names
+  if (filters?.dni) params.dni = filters.dni
+  const paramsKey = Object.keys(params).length > 0 ? params : undefined
 
   const query = useInfiniteQuery({
-    queryKey: ['persons', params],
+    queryKey: ['persons', paramsKey],
     queryFn: ({ pageParam }) =>
-      personsApi.getAll({ limit: DEFAULT_PAGE_SIZE, page: pageParam as number, ...params }),
+      personsApi.getAll({ limit: DEFAULT_PAGE_SIZE, page: pageParam as number, ...paramsKey }),
     getNextPageParam: (last) =>
       last.pagination?.hasNextPage ? last.pagination.currentPage + 1 : undefined,
     initialPageParam: 1,

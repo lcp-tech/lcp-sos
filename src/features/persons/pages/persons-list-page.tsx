@@ -33,7 +33,8 @@ function getAvatar(person: Person) {
 
 export function PersonsListPage() {
   const { searchValue } = useOutletContext<OutletCtx>()
-  const { data, loading, error, refetch, loadMore, hasMore, loadingMore } = usePersons()
+  const personFilters = searchValue ? { names: searchValue } : undefined
+  const { data, loading, error, refetch, loadMore, hasMore, loadingMore } = usePersons(personFilters)
   const { archivePerson } = useArchivePerson()
   const { createPerson, submitting: createSubmitting } = useCreatePerson()
   const { updatePerson, submitting: updateSubmitting } = useUpdatePerson()
@@ -66,13 +67,7 @@ export function PersonsListPage() {
     return () => observer.disconnect()
   }, [hasMore, loadingMore, loadMore])
 
-  const filtered = searchValue
-    ? data.filter(
-        (p) =>
-          `${p.names} ${p.surnames}`.toLowerCase().includes(searchValue.toLowerCase()) ||
-          (p.dni && p.dni.toLowerCase().includes(searchValue.toLowerCase()))
-      )
-    : data
+  // Data comes pre-data from the API
 
   async function handleCreate(values: PersonFormValues) {
     setFormError('')
@@ -140,13 +135,13 @@ export function PersonsListPage() {
             <Skeleton key={i} className="h-[72px] w-full rounded-[18px]" />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : data.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '44px 20px', color: '#9aa8b6', fontWeight: 500 }}>
           {searchValue ? 'Sin resultados' : 'No hay personas registradas'}
         </div>
       ) : (
         <div>
-          {filtered.map((person) => {
+          {data.map((person) => {
             const { bg, color } = getAvatar(person)
             const initials = getInitials(person)
             return (

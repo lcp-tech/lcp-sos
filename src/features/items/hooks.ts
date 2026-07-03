@@ -7,17 +7,21 @@ import { DEFAULT_PAGE_SIZE } from '@/shared/lib/constants'
 import { extractErrorMessage } from '@/shared/hooks/use-resource'
 
 export interface ItemFilters {
+  name?: string
   barcode?: string
 }
 
-/** List hook: infinite scroll, optional barcode filter. */
+/** List hook: infinite scroll, optional name/barcode filter via API. */
 export function useItems(filters?: ItemFilters) {
-  const params = filters?.barcode ? { barcode: filters.barcode } : undefined
+  const params: Record<string, string> = {}
+  if (filters?.name) params.name = filters.name
+  if (filters?.barcode) params.barcode = filters.barcode
+  const paramsKey = Object.keys(params).length > 0 ? params : undefined
 
   const query = useInfiniteQuery({
-    queryKey: ['items', params],
+    queryKey: ['items', paramsKey],
     queryFn: ({ pageParam }) =>
-      itemsApi.getAll({ limit: DEFAULT_PAGE_SIZE, page: pageParam as number, ...params }),
+      itemsApi.getAll({ limit: DEFAULT_PAGE_SIZE, page: pageParam as number, ...paramsKey }),
     getNextPageParam: (last) =>
       last.pagination?.hasNextPage ? last.pagination.currentPage + 1 : undefined,
     initialPageParam: 1,

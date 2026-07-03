@@ -52,6 +52,27 @@ export function InventoryListPage() {
       {/* Stat cards */}
       {!loading && (
         <div style={{ display: 'flex', gap: 8, margin: '6px 0 16px', flexWrap: 'wrap' }}>
+          {/* Total artículos — clears all filters */}
+          <button
+            onClick={() => setStatusFilter(undefined)}
+            style={{
+              flex: '1 1 calc(50% - 4px)',
+              minWidth: 0,
+              background: '#fff',
+              border: !statusFilter ? activeCardBorder : defaultCardBorder,
+              borderRadius: 16,
+              padding: '13px 15px',
+              cursor: 'pointer',
+              textAlign: 'left',
+              fontFamily: 'inherit',
+            }}
+          >
+            <div style={{ fontSize: 23, fontWeight: 800, color: '#0f2a40', letterSpacing: '-.5px' }}>
+              {summary.available + summary.outOfStock + summary.negative}
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#8a99a8', marginTop: 1 }}>Artículos</div>
+          </button>
+
           {/* Disponibles */}
           <button
             onClick={() => toggleFilter('available')}

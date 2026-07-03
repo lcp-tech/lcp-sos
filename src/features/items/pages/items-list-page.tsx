@@ -18,7 +18,12 @@ import type { OutletCtxValue } from '@/shared/layouts/app-layout'
 
 export function ItemsListPage() {
   const { searchValue, barcodeValue } = useOutletContext<OutletCtxValue>()
-  const { data, loading, error, refetch, loadMore, hasMore, loadingMore } = useItems()
+  const filterValue = barcodeValue || searchValue
+  const isBarcode = /^\d+$/.test(filterValue.trim())
+  const itemFilters = filterValue
+    ? isBarcode ? { barcode: filterValue.trim() } : { name: filterValue }
+    : undefined
+  const { data, loading, error, refetch, loadMore, hasMore, loadingMore } = useItems(itemFilters)
   const { archiveItem } = useArchiveItem()
   const { createItem, submitting: createSubmitting } = useCreateItem()
   const { updateItem, submitting: updateSubmitting } = useUpdateItem()
@@ -53,14 +58,7 @@ export function ItemsListPage() {
     return () => observer.disconnect()
   }, [hasMore, loadingMore, loadMore])
 
-  const filterValue = barcodeValue || searchValue
-  const filtered = filterValue
-    ? data.filter(
-        (item) =>
-          item.name.toLowerCase().includes(filterValue.toLowerCase()) ||
-          (item.barcode && item.barcode.includes(filterValue))
-      )
-    : data
+  // Data comes pre-filtered from the API — no client-side filtering needed
 
   async function handleCreate(values: ItemFormValues, file: File | null) {
     setFormError('')
@@ -139,13 +137,13 @@ export function ItemsListPage() {
             <Skeleton key={i} className="h-[72px] w-full rounded-[18px]" />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : data.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '44px 20px', color: '#9aa8b6', fontWeight: 500 }}>
-          {filterValue ? 'Sin resultados' : 'No hay artículos registrados'}
+          {(barcodeValue || searchValue) ? 'Sin resultados' : 'No hay artículos registrados'}
         </div>
       ) : (
         <div>
-          {filtered.map((item) => (
+          {data.map((item) => (
             <button
               key={item.id}
               onClick={() => openDetail(item)}
