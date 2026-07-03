@@ -8,7 +8,7 @@ import { ActionDialog } from '@/shared/components/action-dialog'
 import { useActionDialog } from '@/shared/hooks/use-action-dialog'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { AddContext } from '@/shared/layouts/app-layout'
-import { useArchiveItem, useCreateItem, useItems, useUpdateItem } from '@/features/items/hooks'
+import { useArchiveItem, useCreateItem, useItems, useItemDetail, useUpdateItem } from '@/features/items/hooks'
 import { itemsApi } from '@/features/items/api'
 import { toCreateItemDTO, type ItemFormValues } from '@/features/items/schemas'
 import { ItemDrawerForm } from '@/features/items/components/item-drawer-form'
@@ -27,6 +27,7 @@ export function ItemsListPage() {
   const { archiveItem } = useArchiveItem()
   const { createItem, submitting: createSubmitting } = useCreateItem()
   const { updateItem, submitting: updateSubmitting } = useUpdateItem()
+  const { prefetch, fetchDetail } = useItemDetail()
 
   const { registerAddHandler } = useContext(AddContext)
 
@@ -116,9 +117,9 @@ export function ItemsListPage() {
     setSelectedItem(item)
     setDetailItem(item) // show drawer immediately with list data
     setDetailOpen(true)
-    // Fetch full detail to get stock
+    // Fetch full detail to get stock (cached by React Query — instant if prefetched)
     try {
-      const full = await itemsApi.getById(item.id)
+      const full = await fetchDetail(item.id)
       setDetailItem(full)
     } catch {
       // keep list data — stock simply won't show
@@ -147,6 +148,8 @@ export function ItemsListPage() {
             <button
               key={item.id}
               onClick={() => openDetail(item)}
+              onPointerEnter={() => prefetch(item.id)}
+              onTouchStart={() => prefetch(item.id)}
               style={{
                 width: '100%',
                 textAlign: 'left',
@@ -168,7 +171,7 @@ export function ItemsListPage() {
               {/* Item photo or box icon */}
               <div style={{ flexShrink: 0, width: 46, height: 46, borderRadius: 14, background: '#eaf1f7', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                 {item.url ? (
-                  <img src={item.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={item.url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2c6ea0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/>
@@ -272,7 +275,7 @@ export function ItemsListPage() {
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 20 }}>
               <div style={{ flexShrink: 0, width: 52, height: 52, borderRadius: 16, background: '#eaf1f7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#2c6ea0', fontSize: 14, overflow: 'hidden' }}>
                 {selectedItem.url ? (
-                  <img src={selectedItem.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={selectedItem.url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : 'ART'}
               </div>
               <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>

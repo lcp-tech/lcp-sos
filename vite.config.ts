@@ -37,11 +37,26 @@ export default defineConfig(({ mode }) => {
           navigateFallback: '/index.html',
           runtimeCaching: [
             {
+              // API calls: network-first, short cache
               urlPattern: /^https?:\/\/.*\/api\//,
               handler: 'NetworkFirst',
               options: {
                 cacheName: 'api-cache',
                 expiration: { maxEntries: 50, maxAgeSeconds: 300 },
+              },
+            },
+            {
+              // Item images from R2 (or any external image): cache-first,
+              // download once and reuse. This is the big bandwidth saver.
+              urlPattern: ({ request }) => request.destination === 'image',
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'image-cache',
+                expiration: {
+                  maxEntries: 200,
+                  maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+                },
+                cacheableResponse: { statuses: [0, 200] },
               },
             },
           ],

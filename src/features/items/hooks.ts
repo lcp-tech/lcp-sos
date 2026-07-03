@@ -67,6 +67,32 @@ export function useItem(id: number | string | undefined): UseItemReturn {
   }
 }
 
+/**
+ * Returns helpers to prefetch and read the cached detail of an item.
+ * Prefetch on hover/touch so the detail drawer opens instantly.
+ */
+export function useItemDetail() {
+  const queryClient = useQueryClient()
+
+  function prefetch(id: number) {
+    queryClient.prefetchQuery({
+      queryKey: ['items', id],
+      queryFn: () => itemsApi.getById(id),
+      staleTime: 30_000,
+    })
+  }
+
+  async function fetchDetail(id: number): Promise<Item> {
+    return queryClient.fetchQuery({
+      queryKey: ['items', id],
+      queryFn: () => itemsApi.getById(id),
+      staleTime: 30_000,
+    })
+  }
+
+  return { prefetch, fetchDetail }
+}
+
 export function useCreateItem() {
   const queryClient = useQueryClient()
   const mutation = useMutation({
