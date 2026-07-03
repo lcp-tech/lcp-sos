@@ -79,14 +79,17 @@ export function ItemDrawerForm({
 
     setCompressing(true)
     try {
-      // Compress + resize before upload: max 1MB, max 1280px, WebP output.
-      // Uses a Web Worker so the UI stays responsive.
+      // Target ~250KB (backend limit) without visible pixelation.
+      // Strategy: cap at 1024px (plenty for identifying an inventory item)
+      // + WebP + quality 0.82. WebP holds detail well at this size, so the
+      // library lands well under 250KB while staying sharp.
+      // maxSizeMB is the hard ceiling; the resize usually gets us there first.
       const compressed = await imageCompression(file, {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 1280,
+        maxSizeMB: 0.25,
+        maxWidthOrHeight: 1024,
         useWebWorker: true,
         fileType: 'image/webp',
-        initialQuality: 0.8,
+        initialQuality: 0.82,
       })
       setSelectedFile(compressed)
       setPreviewUrl(URL.createObjectURL(compressed))
