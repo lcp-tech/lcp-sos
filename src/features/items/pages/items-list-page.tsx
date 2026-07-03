@@ -12,6 +12,7 @@ import { useArchiveItem, useCreateItem, useItems, useItemDetail, useUpdateItem }
 import { itemsApi } from '@/features/items/api'
 import { toCreateItemDTO, type ItemFormValues } from '@/features/items/schemas'
 import { ItemDrawerForm } from '@/features/items/components/item-drawer-form'
+import { ItemImage } from '@/features/items/components/item-image'
 import type { Item } from '@/features/items/types'
 
 import type { OutletCtxValue } from '@/shared/layouts/app-layout'
@@ -168,16 +169,8 @@ export function ItemsListPage() {
               onMouseUp={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.borderColor = '#e9edf2' }}
               onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.borderColor = '#e9edf2' }}
             >
-              {/* Item photo or box icon */}
-              <div style={{ flexShrink: 0, width: 46, height: 46, borderRadius: 14, background: '#eaf1f7', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                {item.url ? (
-                  <img src={item.url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2c6ea0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/>
-                  </svg>
-                )}
-              </div>
+              {/* Item photo with icon fallback */}
+              <ItemImage url={item.url} size={46} radius={14} />
 
               {/* Name + unit + barcode */}
               <div style={{ flex: 1, minWidth: 0 }}>

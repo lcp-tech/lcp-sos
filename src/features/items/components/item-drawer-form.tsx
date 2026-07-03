@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import imageCompression from 'browser-image-compression'
 
 import { BarcodeScanner } from '@/shared/components/barcode-scanner'
 import { itemSchema, type ItemFormValues } from '@/features/items/schemas'
@@ -58,6 +59,7 @@ export function ItemDrawerForm({
   const [scannerOpen, setScannerOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(existingImageUrl ?? null)
+  const [compressing, setCompressing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { register, handleSubmit, setValue, control, formState: { errors } } = useForm<ItemFormValues>({
@@ -71,11 +73,30 @@ export function ItemDrawerForm({
     setScannerOpen(false)
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    setSelectedFile(file)
-    setPreviewUrl(URL.createObjectURL(file))
+
+    setCompressing(true)
+    try {
+      // Compress + resize before upload: max 1MB, max 1280px, WebP output.
+      // Uses a Web Worker so the UI stays responsive.
+      const compressed = await imageCompression(file, {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1280,
+        useWebWorker: true,
+        fileType: 'image/webp',
+        initialQuality: 0.8,
+      })
+      setSelectedFile(compressed)
+      setPreviewUrl(URL.createObjectURL(compressed))
+    } catch {
+      // If compression fails, fall back to the original file
+      setSelectedFile(file)
+      setPreviewUrl(URL.createObjectURL(file))
+    } finally {
+      setCompressing(false)
+    }
   }
 
   function removeImage() {
@@ -109,7 +130,24 @@ export function ItemDrawerForm({
             style={{ display: 'none' }}
           />
 
-          {previewUrl ? (
+          {compressing ? (
+            <div style={{
+              width: '100%',
+              height: 160,
+              borderRadius: 14,
+              border: '1.5px solid #e6ebf1',
+              background: '#f5f7fa',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              marginBottom: 16,
+            }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid #e9edf2', borderTopColor: '#165382', animation: 'spin 0.8s linear infinite' }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#8a99a8' }}>Optimizando imagen…</span>
+            </div>
+          ) : previewUrl ? (
             <div style={{ position: 'relative', marginBottom: 16 }}>
               <img
                 src={previewUrl}
@@ -264,7 +302,7 @@ export function ItemDrawerForm({
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || compressing}
             style={{
               marginTop: 22,
               width: '100%',
@@ -275,8 +313,8 @@ export function ItemDrawerForm({
               padding: 17,
               fontSize: 16,
               fontWeight: 700,
-              cursor: submitting ? 'default' : 'pointer',
-              opacity: submitting ? 0.7 : 1,
+              cursor: (submitting || compressing) ? 'default' : 'pointer',
+              opacity: (submitting || compressing) ? 0.7 : 1,
               fontFamily: 'inherit',
             }}
           >
