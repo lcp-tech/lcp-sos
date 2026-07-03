@@ -6,6 +6,7 @@ import { Drawer } from '@/shared/components/drawer'
 import { BarcodeScanner } from '@/shared/components/barcode-scanner'
 import { OfflineBanner } from '@/shared/components/offline-banner'
 import { useOnline } from '@/shared/hooks/use-online'
+import { useDebounce } from '@/shared/hooks/use-debounce'
 import { useAuthStore } from '@/shared/stores/auth-store'
 
 // ------------ Tab meta -------------------------------------------------------
@@ -52,6 +53,10 @@ export function AppLayout() {
   const [scannerOpen, setScannerOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
+  // Debounce search 1.5s before it reaches the pages (which trigger API fetches).
+  // The input shows searchValue immediately for a responsive feel.
+  const debouncedSearch = useDebounce(searchValue, 1500)
+
   function clearFilters() {
     setSearchValue('')
     setBarcodeValue('')
@@ -88,7 +93,7 @@ export function AppLayout() {
     }
   }
 
-  const outletCtx: OutletCtxValue = { searchValue, barcodeValue, clearFilters, isOnline }
+  const outletCtx: OutletCtxValue = { searchValue: debouncedSearch, barcodeValue, clearFilters, isOnline }
 
   return (
     <AddContext.Provider value={{ registerAddHandler }}>
