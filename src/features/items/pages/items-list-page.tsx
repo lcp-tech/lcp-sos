@@ -30,6 +30,7 @@ export function ItemsListPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<Item | null>(null)
+  const [detailItem, setDetailItem] = useState<Item | null>(null)
   const [formError, setFormError] = useState('')
   const { dialogProps, closeDialog, runWithDialog } = useActionDialog()
 
@@ -107,14 +108,23 @@ export function ItemsListPage() {
     const ok = await archiveItem(selectedItem.id)
     if (ok) {
       setDetailOpen(false)
+      setDetailItem(null)
       toast.success('Artículo archivado')
       refetch()
     }
   }
 
-  function openDetail(item: Item) {
+  async function openDetail(item: Item) {
     setSelectedItem(item)
+    setDetailItem(item) // show drawer immediately with list data
     setDetailOpen(true)
+    // Fetch full detail to get stock
+    try {
+      const full = await itemsApi.getById(item.id)
+      setDetailItem(full)
+    } catch {
+      // keep list data — stock simply won't show
+    }
   }
 
   return (
@@ -212,7 +222,7 @@ export function ItemsListPage() {
       </Drawer>
 
       {/* Detail drawer */}
-      <Drawer open={detailOpen} onClose={() => setDetailOpen(false)}>
+      <Drawer open={detailOpen} onClose={() => { setDetailOpen(false); setDetailItem(null) }}>
         {selectedItem && (
           <div className="scrollarea" style={{ overflowY: 'auto', padding: '6px 22px 30px' }}>
             {/* Item image — tap to open fullscreen */}
@@ -289,9 +299,23 @@ export function ItemsListPage() {
               </div>
             ))}
 
+            {/* Stock field — shown once detail fetch resolves */}
+            {detailItem?.stock !== undefined && (() => {
+              const stock = detailItem.stock as number
+              const stockColor = stock > 5 ? '#2f9e6a' : stock >= 1 ? '#c07d1e' : '#c8392f'
+              return (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, padding: '13px 0', borderBottom: '1px solid #f0f3f6' }}>
+                  <span style={{ fontSize: 13.5, fontWeight: 600, color: '#8a99a8', flexShrink: 0 }}>Stock disponible</span>
+                  <span style={{ fontSize: 14.5, fontWeight: 700, color: stockColor, textAlign: 'right' }}>
+                    {stock}
+                  </span>
+                </div>
+              )
+            })()}
+
             <div style={{ display: 'flex', gap: 11, marginTop: 22 }}>
               <button
-                onClick={() => { setDetailOpen(false); setFormError(''); setEditOpen(true) }}
+                onClick={() => { setDetailOpen(false); setDetailItem(null); setFormError(''); setEditOpen(true) }}
                 style={{ flex: 1, background: '#eaf1f7', color: '#165382', border: 'none', borderRadius: 14, padding: 15, fontSize: 14.5, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' }}
               >
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#165382" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">

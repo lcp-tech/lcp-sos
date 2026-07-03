@@ -96,7 +96,7 @@ export function AppLayout() {
         {/* ---- FIXED HEADER (banner + title + search) ---- */}
         <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 10, background: '#f5f7fa' }}>
           <OfflineBanner />
-          <div style={{ padding: '20px 20px 14px' }}>
+          <div style={{ paddingTop: 'max(20px, env(safe-area-inset-top, 20px))', paddingBottom: 14, paddingLeft: 20, paddingRight: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             {/* Title group */}
             <div>

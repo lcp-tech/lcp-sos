@@ -26,9 +26,33 @@ function unitShort(u: string | null | undefined) {
   return u ? (map[u] ?? u) : ''
 }
 
+const DATE_INPUT_STYLE: React.CSSProperties = {
+  background: '#f5f7fa',
+  border: '1.5px solid #e6ebf1',
+  borderRadius: 14,
+  padding: '10px 14px',
+  fontSize: 14,
+  fontWeight: 600,
+  color: '#12212e',
+  outline: 'none',
+  fontFamily: 'inherit',
+  flex: 1,
+  minWidth: 0,
+}
+
 export function ExitsListPage() {
   const { searchValue } = useOutletContext<OutletCtx>()
-  const { data, loading, error, refetch, loadMore, hasMore, loadingMore } = useExits()
+  const [since, setSince] = useState('')
+  const [until, setUntil] = useState('')
+
+  const dateFilters = {
+    ...(since ? { since } : {}),
+    ...(until ? { until } : {}),
+  }
+
+  const { data, loading, error, refetch, loadMore, hasMore, loadingMore } = useExits(
+    Object.keys(dateFilters).length > 0 ? dateFilters : undefined
+  )
   useArchiveExit() // available for future use
   const { createExit, submitting } = useCreateExit()
   const { registerAddHandler } = useContext(AddContext)
@@ -83,8 +107,55 @@ export function ExitsListPage() {
     }
   }
 
+  const hasDates = since || until
+
   return (
     <div style={{ animation: 'screenIn .32s ease' }}>
+      {/* Date range filter */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: '#8a99a8', marginBottom: 5 }}>Desde</div>
+          <input
+            type="date"
+            value={since}
+            onChange={(e) => setSince(e.target.value)}
+            style={DATE_INPUT_STYLE}
+          />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: '#8a99a8', marginBottom: 5 }}>Hasta</div>
+          <input
+            type="date"
+            value={until}
+            onChange={(e) => setUntil(e.target.value)}
+            style={DATE_INPUT_STYLE}
+          />
+        </div>
+        {hasDates && (
+          <button
+            onClick={() => { setSince(''); setUntil('') }}
+            aria-label="Limpiar fechas"
+            style={{
+              alignSelf: 'flex-end',
+              height: 42,
+              width: 42,
+              flexShrink: 0,
+              border: '1.5px solid #e6ebf1',
+              borderRadius: 14,
+              background: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9aa8b6" strokeWidth="2.6" strokeLinecap="round">
+              <path d="M18 6 6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        )}
+      </div>
+
       {error && (
         <p style={{ color: '#c8392f', fontSize: 13, fontWeight: 600, textAlign: 'center', marginBottom: 12 }}>{error}</p>
       )}
@@ -97,7 +168,7 @@ export function ExitsListPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '44px 20px', color: '#9aa8b6', fontWeight: 500 }}>
-          {searchValue ? 'Sin resultados' : 'Aún no hay salidas registradas'}
+          {searchValue || hasDates ? 'Sin resultados' : 'Aún no hay salidas registradas'}
         </div>
       ) : (
         <div>

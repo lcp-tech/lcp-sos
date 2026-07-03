@@ -12,6 +12,8 @@ export interface Item {
   barcode: string | null
   unit: string | null
   url: string | null
+  /** Only present on GET /items/{id} — not included in list responses. */
+  stock?: number
   createdAt: string
   createdBy: number
   updatedAt: string | null

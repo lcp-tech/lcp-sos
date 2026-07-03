@@ -9,6 +9,16 @@ import { buildEntrySchema, type EntryFormValues } from '@/features/entries/schem
 import type { Item } from '@/features/items/types'
 import type { Person } from '@/features/persons/types'
 
+/** Fetches `stock` for the given item id. Returns null on error. */
+async function fetchItemStock(id: number): Promise<number | null> {
+  try {
+    const item = await itemsApi.getById(id)
+    return item.stock ?? null
+  } catch {
+    return null
+  }
+}
+
 interface EntryDrawerFormProps {
   mode?: 'create' | 'edit'
   defaultValues?: Partial<EntryFormValues>
@@ -61,6 +71,8 @@ export function EntryDrawerForm({
   const [selectedItem, setSelectedItem] = useState<Item | null>(preselectedItem)
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(preselectedPerson)
   const [selectorOpen, setSelectorOpen] = useState<'item' | 'person' | null>(null)
+  const [currentStock, setCurrentStock] = useState<number | null>(null)
+  const [loadingStock, setLoadingStock] = useState(false)
 
   const schema = buildEntrySchema(mode)
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<EntryFormValues>({
@@ -74,10 +86,15 @@ export function EntryDrawerForm({
     },
   })
 
-  function handleItemSelect(item: Item) {
+  async function handleItemSelect(item: Item) {
     setSelectedItem(item)
     setValue('itemId', item.id, { shouldValidate: true })
     setSelectorOpen(null)
+    setCurrentStock(null)
+    setLoadingStock(true)
+    const stock = await fetchItemStock(item.id)
+    setCurrentStock(stock)
+    setLoadingStock(false)
   }
 
   function handlePersonSelect(person: Person) {
@@ -125,6 +142,18 @@ export function EntryDrawerForm({
           {errors.itemId && (
             <div style={{ color: '#c8392f', fontSize: 13, fontWeight: 600, marginTop: -10, marginBottom: 12 }}>
               {errors.itemId.message}
+            </div>
+          )}
+
+          {/* Current stock — shown after item selection */}
+          {selectedItem && (
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: '#8a99a8', marginTop: -8, marginBottom: 14 }}>
+              {loadingStock
+                ? 'Consultando stock…'
+                : currentStock !== null
+                  ? `Stock actual: ${currentStock}${selectedItem.unit ? ` ${selectedItem.unit}` : ''}`
+                  : null
+              }
             </div>
           )}
 

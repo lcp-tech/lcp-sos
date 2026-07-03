@@ -12,19 +12,23 @@ import {
 export interface EntryFilters {
   itemId?: number
   donorId?: number
+  since?: string
+  until?: string
 }
 
-/** List hook: paginated, debounced free-text search, plus optional item/donor filters. */
+/** List hook: paginated, debounced free-text search, plus optional item/donor/date filters. */
 export function useEntries(
   filters?: EntryFilters,
   options?: Pick<UseResourceListOptions, 'pageSize'>
 ) {
   const mergedFilters = useMemo(() => {
-    const merged: Record<string, number> = {}
+    const merged: Record<string, string | number> = {}
     if (filters?.itemId) merged.itemId = filters.itemId
     if (filters?.donorId) merged.donorId = filters.donorId
+    if (filters?.since) merged.since = filters.since
+    if (filters?.until) merged.until = filters.until
     return Object.keys(merged).length > 0 ? merged : undefined
-  }, [filters?.itemId, filters?.donorId])
+  }, [filters?.itemId, filters?.donorId, filters?.since, filters?.until])
 
   return useResourceList<Entry>(entriesApi, { ...options, filters: mergedFilters })
 }

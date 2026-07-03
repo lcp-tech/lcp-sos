@@ -12,19 +12,23 @@ import {
 export interface ExitFilters {
   itemId?: number
   recipientId?: number
+  since?: string
+  until?: string
 }
 
-/** List hook: paginated, debounced free-text search, plus optional item/recipient filters. */
+/** List hook: paginated, debounced free-text search, plus optional item/recipient/date filters. */
 export function useExits(
   filters?: ExitFilters,
   options?: Pick<UseResourceListOptions, 'pageSize'>
 ) {
   const mergedFilters = useMemo(() => {
-    const merged: Record<string, number> = {}
+    const merged: Record<string, string | number> = {}
     if (filters?.itemId) merged.itemId = filters.itemId
     if (filters?.recipientId) merged.recipientId = filters.recipientId
+    if (filters?.since) merged.since = filters.since
+    if (filters?.until) merged.until = filters.until
     return Object.keys(merged).length > 0 ? merged : undefined
-  }, [filters?.itemId, filters?.recipientId])
+  }, [filters?.itemId, filters?.recipientId, filters?.since, filters?.until])
 
   return useResourceList<Exit>(exitsApi, { ...options, filters: mergedFilters })
 }
