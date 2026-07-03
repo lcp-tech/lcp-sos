@@ -142,30 +142,28 @@ export function InventoryListPage() {
             )}
           </button>
 
-          {/* Negativos — only shown when summary.negative > 0 */}
-          {summary.negative > 0 && (
-            <button
-              onClick={() => toggleFilter('negative')}
-              style={{
-                flex: '1 1 calc(50% - 4px)',
-                minWidth: 0,
-                background: '#fff',
-                border: statusFilter === 'negative' ? activeCardBorder : '1.5px solid #f2d0cf',
-                borderRadius: 16,
-                padding: '13px 15px',
-                cursor: 'pointer',
-                textAlign: 'left',
-                fontFamily: 'inherit',
-                position: 'relative',
-              }}
-            >
-              <div style={{ fontSize: 23, fontWeight: 800, color: '#9b1f1a', letterSpacing: '-.5px' }}>{summary.negative}</div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#b5524e', marginTop: 1 }}>Negativos</div>
-              {statusFilter === 'negative' && (
-                <span style={{ position: 'absolute', top: 7, right: 9, fontSize: 13, color: '#165382', fontWeight: 700 }}>×</span>
-              )}
-            </button>
-          )}
+          {/* Negativos — always visible */}
+          <button
+            onClick={() => toggleFilter('negative')}
+            style={{
+              flex: '1 1 calc(50% - 4px)',
+              minWidth: 0,
+              background: '#fff',
+              border: statusFilter === 'negative' ? activeCardBorder : '1.5px solid #f2d0cf',
+              borderRadius: 16,
+              padding: '13px 15px',
+              cursor: 'pointer',
+              textAlign: 'left',
+              fontFamily: 'inherit',
+              position: 'relative',
+            }}
+          >
+            <div style={{ fontSize: 23, fontWeight: 800, color: '#9b1f1a', letterSpacing: '-.5px' }}>{summary.negative}</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#b5524e', marginTop: 1 }}>Negativos</div>
+            {statusFilter === 'negative' && (
+              <span style={{ position: 'absolute', top: 7, right: 9, fontSize: 13, color: '#165382', fontWeight: 700 }}>×</span>
+            )}
+          </button>
         </div>
       )}
 
